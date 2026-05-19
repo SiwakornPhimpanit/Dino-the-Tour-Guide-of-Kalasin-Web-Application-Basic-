@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { pool } from "../db/pool.js";
-import { placeCreateSchema, placeReplaceSchema } from "../validation/place.js";
+import { placeCreateSchema, placeReplaceSchema, type PlaceCreateBody } from "../validation/place.js";
 
 export const placesRouter = Router();
 
@@ -12,7 +12,48 @@ const placeRowSelect = `
          tp.facebook_url as "facebookUrl",
          tp.line_url as "lineUrl",
          tp.category_id as "categoryId",
-         c.name as "categoryName"`;
+         c.name as "categoryName",
+         tp.district,
+         tp.address,
+         tp.opening_hours as "openingHours",
+         tp.best_visit_time as "bestVisitTime",
+         tp.ticket_price as "ticketPrice",
+         tp.activities,
+         tp.suitable_for as "suitableFor",
+         tp.highlights,
+         tp.faq,
+         coalesce(tp.is_must_visit, false) as "isMustVisit",
+         coalesce(tp.is_recommended_first_trip, false) as "isRecommendedFirstTrip",
+         tp.estimated_visit_hours as "estimatedVisitHours"`;
+
+function placeInsertParams(payload: PlaceCreateBody) {
+  return [
+    payload.name,
+    payload.description,
+    payload.categoryId,
+    payload.googleMapsUrl ?? null,
+    payload.facebookUrl ?? null,
+    payload.lineUrl ?? null,
+    payload.district ?? null,
+    payload.address ?? null,
+    payload.openingHours ?? null,
+    payload.bestVisitTime ?? null,
+    payload.ticketPrice ?? null,
+    payload.activities ?? null,
+    payload.suitableFor ?? null,
+    payload.highlights ?? null,
+    payload.faq ?? null,
+    payload.isMustVisit ?? false,
+    payload.isRecommendedFirstTrip ?? false,
+    payload.estimatedVisitHours ?? null,
+  ];
+}
+
+const placeInsertColumns = `
+  name, description, category_id, google_maps_url, facebook_url, line_url,
+  district, address, opening_hours, best_visit_time, ticket_price,
+  activities, suitable_for, highlights, faq,
+  is_must_visit, is_recommended_first_trip, estimated_visit_hours`;
 
 placesRouter.get("/", async (req, res, next) => {
   try {
@@ -50,8 +91,9 @@ placesRouter.get("/", async (req, res, next) => {
            or tp.name ilike '%' || $2 || '%'
            or tp.description ilike '%' || $2 || '%'
            or coalesce(c.name, '') ilike '%' || $2 || '%'
+           or coalesce(tp.district, '') ilike '%' || $2 || '%'
          )
-       order by tp.created_at desc`,
+       order by tp.is_recommended_first_trip desc, tp.is_must_visit desc, tp.created_at desc`,
       [categoryId, search]
     );
     res.json({ data: result.rows });
@@ -107,18 +149,10 @@ placesRouter.post("/", async (req, res, next) => {
       await client.query("BEGIN");
 
       const insertPlace = await client.query(
-        `insert into tourist_places
-          (name, description, category_id, google_maps_url, facebook_url, line_url)
-         values ($1, $2, $3, $4, $5, $6)
+        `insert into tourist_places (${placeInsertColumns})
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
          returning id`,
-        [
-          payload.name,
-          payload.description,
-          payload.categoryId,
-          payload.googleMapsUrl ?? null,
-          payload.facebookUrl ?? null,
-          payload.lineUrl ?? null,
-        ]
+        placeInsertParams(payload)
       );
       const placeId = insertPlace.rows[0].id as number;
 
@@ -186,6 +220,7 @@ placesRouter.put("/:id", async (req, res, next) => {
     try {
       await client.query("BEGIN");
 
+      const p = placeInsertParams(payload);
       await client.query(
         `update tourist_places
          set name = $1,
@@ -194,17 +229,21 @@ placesRouter.put("/:id", async (req, res, next) => {
              google_maps_url = $4,
              facebook_url = $5,
              line_url = $6,
+             district = $7,
+             address = $8,
+             opening_hours = $9,
+             best_visit_time = $10,
+             ticket_price = $11,
+             activities = $12,
+             suitable_for = $13,
+             highlights = $14,
+             faq = $15,
+             is_must_visit = $16,
+             is_recommended_first_trip = $17,
+             estimated_visit_hours = $18,
              updated_at = now()
-         where id = $7`,
-        [
-          payload.name,
-          payload.description,
-          payload.categoryId,
-          payload.googleMapsUrl ?? null,
-          payload.facebookUrl ?? null,
-          payload.lineUrl ?? null,
-          id,
-        ]
+         where id = $19`,
+        [...p, id]
       );
 
       await client.query(`delete from place_images where place_id = $1`, [id]);

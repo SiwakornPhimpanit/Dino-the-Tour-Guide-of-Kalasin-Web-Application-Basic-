@@ -3,6 +3,6 @@ import { Navigate } from "react-router-dom";
 import { isAdminSession } from "../lib/auth";
 
 export function RequireAdmin({ children }: { children: ReactNode }) {
-  if (!isAdminSession()) return <Navigate to="/login" replace />;
+  if (!isAdminSession()) return <Navigate to="/admin/login" replace />;
   return <>{children}</>;
 }

@@ -1,0 +1,29 @@
+import { env } from "../lib/env";
+import { http } from "../lib/http";
+import type { AuthUser, StoredAuth } from "../lib/auth";
+
+const base = env.apiBaseUrl.replace(/\/$/, "");
+
+type AuthResponse = { data: StoredAuth };
+
+export const authApi = {
+  register(body: { email: string; password: string; displayName?: string }) {
+    return http<AuthResponse>(`${base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  },
+
+  login(body: { email: string; password: string }) {
+    return http<AuthResponse>(`${base}/api/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  },
+
+  me() {
+    return http<{ data: AuthUser }>(`${base}/api/auth/me`);
+  },
+};

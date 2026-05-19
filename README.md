@@ -68,12 +68,14 @@ docker compose up -d
 - คัดลอก `backend/.env.example` เป็น `backend/.env`
 - แก้ `DATABASE_URL` ให้ตรงกับเครื่อง
 
-รัน migration เพื่อสร้างตาราง:
+รัน migration เพื่อสร้างตารางและข้อมูลตัวอย่างสำหรับ AI:
 
 ```bash
 cd backend
 npm run migrate
 ```
+
+Migration ล่าสุดเพิ่มฟิลด์สถานที่ (เวลาเปิด, กิจกรรม, เหมาะกับใคร ฯลฯ) ตารางแผนเที่ยว อาหารพื้นเมือง ของฝาก โซนที่พัก และคู่มือเดินทาง — ใช้โดย `/api/chat/stream`
 
 รัน API:
 

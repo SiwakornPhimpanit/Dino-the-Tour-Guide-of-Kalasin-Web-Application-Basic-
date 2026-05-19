@@ -1,8 +1,10 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { authRouter } from "./routes/auth.js";
 import { categoriesRouter } from "./routes/categories.js";
 import { chatRouter } from "./routes/chat.js";
+import { chatSessionsRouter } from "./routes/chatSessions.js";
 import { placesRouter } from "./routes/places.js";
 dotenv.config();
 export function createApp() {
@@ -25,9 +27,11 @@ export function createApp() {
     }));
     app.use(express.json({ limit: "2mb" }));
     app.get("/health", (_req, res) => res.json({ ok: true }));
+    app.use("/api/auth", authRouter);
     app.use("/api/categories", categoriesRouter);
     app.use("/api/places", placesRouter);
     app.use("/api/chat", chatRouter);
+    app.use("/api/chat", chatSessionsRouter);
     app.use((err, _req, res, _next) => {
         if (err && typeof err === "object" && "issues" in err) {
             return res.status(400).json({ error: "VALIDATION_ERROR", details: err });

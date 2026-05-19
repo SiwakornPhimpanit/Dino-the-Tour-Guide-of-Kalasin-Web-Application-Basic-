@@ -1,11 +1,18 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { pool } from "../db/pool.js";
+import { buildSystemPrompt, loadTravelKnowledgeContext } from "../lib/chatContext.js";
+import {
+  insertChatMessage,
+  resolveSessionForChat,
+  touchSession,
+} from "../lib/chatPersistence.js";
+import { optionalAuth, type AuthedRequest } from "../middleware/auth.js";
 
 const OPENAI_MODEL_DEFAULT = "gpt-4o-mini";
 
 const bodySchema = z.object({
+  sessionId: z.number().int().positive().optional().nullable(),
   messages: z
     .array(
       z.object({
@@ -17,83 +24,15 @@ const bodySchema = z.object({
     .max(30),
 });
 
-type PlaceRow = {
-  id: number;
-  name: string;
-  description: string | null;
-  categoryName: string | null;
-  googleMapsUrl: string | null;
-  facebookUrl: string | null;
-  lineUrl: string | null;
-};
-
-function truncateText(s: string, max: number): string {
-  const t = s.trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, max)}…`;
-}
-
-function buildSystemPrompt(places: PlaceRow[]): string {
-  const payload = places.map((p) => ({
-    id: p.id,
-    name: p.name,
-    category: p.categoryName ?? "",
-    description: truncateText(p.description ?? "", 260),
-    googleMapsUrl: p.googleMapsUrl || undefined,
-    facebookUrl: p.facebookUrl || undefined,
-    lineUrl: p.lineUrl || undefined,
-  }));
-
-  return [
-    "คุณคือผู้ช่วยแนะนำสถานที่ท่องเที่ยวจังหวัดกาฬสินธุ์",
-    "กฎสำคัญ:",
-    "- ตอบเป็นภาษาไทยเท่านั้น น้ำเสียงสุภาพ อ่านง่าย",
-    "- ตอบกระชับแต่ครบข้อมูลสำคัญของแต่ละสถานที่ที่แนะนำ",
-    "- ใช้เฉพาะข้อมูลจากอาร์เรย์ JSON \"places\" ด้านล่างเท่านั้น ห้ามสร้างชื่อสถานที่ รายละเอียด หมวดหมู่ หรือลิงก์ที่ไม่มีในรายการ",
-    "- เมื่อแนะนำแต่ละสถานที่ ให้ใช้รูปแบบนี้ (ขึ้นต้นด้วย \"- ชื่อสถานที่\" แล้วบรรทัดถัดไปเยื้องด้วยข้อความ):",
-    "  หมวด: (จาก category)",
-    "  รายละเอียด: (สรุปจาก description สั้นๆ 1–2 ประโยค ห้ามยาวเกิน)",
-    "  แผนที่: URL (เฉพาะเมื่อมี googleMapsUrl — คัดลอก googleMapsUrl ตรงๆ ห้ามย่อ)",
-    "  Facebook: URL (เฉพาะเมื่อมี facebookUrl — ต้องมีบรรทัดนี้และขึ้นต้นด้วยคำว่า Facebook: ตามด้วย URL เต็ม)",
-    "  LINE: URL (เฉพาะเมื่อมี lineUrl — ต้องมีบรรทัดนี้และขึ้นต้นด้วยคำว่า LINE: ตามด้วย URL เต็ม)",
-    "  ข้ามบรรทัดที่ไม่มีข้อมูลใน JSON (เช่นไม่มี facebookUrl ก็ไม่ต้องมีบรรทัด Facebook)",
-    "- ห้ามใช้รูปแบบ Markdown สำหรับลิงก์ เช่น ห้ามเขียน [ข้อความ](url)",
-    "- คัดลอก URL จาก JSON เต็มๆ ห้ามสร้างหรือแปลงลิงก์เอง",
-    "- ถ้าไม่มีข้อมูลในระบบที่ตอบคำถามได้ (เช่น places ว่าง หรือไม่มีสถานที่ที่ตรงกับคำถาม) ให้ตอบว่า \"ขออภัย ยังไม่มีข้อมูลในระบบ\" โดยใช้ประโยคนี้ตรงๆ",
-    "- หากแนะนำหลายสถานที่ ให้จัดเป็นข้อ โดยแต่ละข้อขึ้นต้นด้วย \"- \" หรือใช้ลำดับเลข",
-    "- ไม่ต้องคัดลอกคำถามผู้ใช้มาในคำตอบ",
-    "",
-    `places = ${JSON.stringify(payload)}`,
-  ].join("\n");
-}
-
-async function loadPlacesForPrompt(): Promise<PlaceRow[]> {
-  const result = await pool.query<PlaceRow>(
-    `select
-       tp.id,
-       tp.name,
-       tp.description,
-       c.name as "categoryName",
-       tp.google_maps_url as "googleMapsUrl",
-       tp.facebook_url as "facebookUrl",
-       tp.line_url as "lineUrl"
-     from tourist_places tp
-     left join categories c on c.id = tp.category_id
-     where tp.is_active = true
-     order by tp.name asc
-     limit 55`
-  );
-  return result.rows;
-}
-
 async function pipeOpenAiStreamToClient(
   body: ReadableStream<Uint8Array>,
   res: Response
-): Promise<void> {
+): Promise<string> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let lineBuf = "";
   let sawDone = false;
+  let fullText = "";
 
   while (!sawDone) {
     const { done, value } = await reader.read();
@@ -119,15 +58,18 @@ async function pipeOpenAiStreamToClient(
       const rec = json as { choices?: { delta?: { content?: string } }[] };
       const piece = rec.choices?.[0]?.delta?.content;
       if (piece) {
+        fullText += piece;
         res.write(`data: ${JSON.stringify({ d: piece })}\n\n`);
       }
     }
   }
+
+  return fullText;
 }
 
 export const chatRouter = Router();
 
-chatRouter.post("/stream", async (req: Request, res: Response) => {
+chatRouter.post("/stream", optionalAuth, async (req: AuthedRequest, res: Response) => {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
     return res.status(503).json({
@@ -141,15 +83,27 @@ chatRouter.post("/stream", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "INVALID_BODY", details: parsed.error.flatten() });
   }
 
-  let places: PlaceRow[];
-  try {
-    places = await loadPlacesForPrompt();
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "PLACES_LOAD_FAILED" });
+  const userId = req.user?.sub;
+  const lastUser = [...parsed.data.messages].reverse().find((m) => m.role === "user");
+  if (!lastUser) {
+    return res.status(400).json({ error: "MISSING_USER_MESSAGE" });
   }
 
-  const systemPrompt = buildSystemPrompt(places);
+  let activeSessionId: number | null = parsed.data.sessionId ?? null;
+
+  if (parsed.data.sessionId != null && !userId) {
+    return res.status(401).json({ error: "UNAUTHORIZED", message: "ต้องเข้าสู่ระบบเพื่อใช้ประวัติแชท" });
+  }
+
+  let systemPrompt: string;
+  try {
+    const ctx = await loadTravelKnowledgeContext();
+    systemPrompt = buildSystemPrompt(ctx);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "KNOWLEDGE_LOAD_FAILED" });
+  }
+
   const userMessages = parsed.data.messages;
   const model = process.env.OPENAI_MODEL?.trim() || OPENAI_MODEL_DEFAULT;
 
@@ -165,7 +119,7 @@ chatRouter.post("/stream", async (req: Request, res: Response) => {
         model,
         stream: true,
         temperature: 0.45,
-        max_tokens: 1024,
+        max_tokens: 1536,
         messages: [{ role: "system" as const, content: systemPrompt }, ...userMessages],
       }),
     });
@@ -184,6 +138,18 @@ chatRouter.post("/stream", async (req: Request, res: Response) => {
     return res.status(502).json({ error: "AI_EMPTY_BODY" });
   }
 
+  if (userId) {
+    try {
+      activeSessionId = await resolveSessionForChat(userId, activeSessionId, lastUser.content);
+      await insertChatMessage(activeSessionId, "user", lastUser.content);
+    } catch (e) {
+      if (e instanceof Error && e.message === "SESSION_NOT_FOUND") {
+        return res.status(404).json({ error: "SESSION_NOT_FOUND" });
+      }
+      throw e;
+    }
+  }
+
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -200,7 +166,21 @@ chatRouter.post("/stream", async (req: Request, res: Response) => {
   req.on("close", onClose);
 
   try {
-    await pipeOpenAiStreamToClient(aiResponse.body, res);
+    if (userId && activeSessionId != null) {
+      res.write(`data: ${JSON.stringify({ meta: { sessionId: activeSessionId } })}\n\n`);
+    }
+
+    const assistantText = await pipeOpenAiStreamToClient(aiResponse.body, res);
+
+    if (userId && activeSessionId != null && assistantText.trim()) {
+      await insertChatMessage(activeSessionId, "assistant", assistantText);
+      await touchSession(activeSessionId);
+    }
+
+    if (userId && activeSessionId != null) {
+      res.write(`data: ${JSON.stringify({ meta: { sessionId: activeSessionId } })}\n\n`);
+    }
+
     res.write(`data: [DONE]\n\n`);
     res.end();
   } catch (e) {

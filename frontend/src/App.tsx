@@ -8,7 +8,9 @@ import { AdminPlacesPage } from "./pages/AdminPlacesPage";
 import { AssistantChatPage } from "./pages/AssistantChatPage";
 import { ContactPage } from "./pages/ContactPage";
 import { HomePage } from "./pages/HomePage";
-import { LoginPage } from "./pages/LoginPage";
+import { AdminLoginPage } from "./pages/AdminLoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { UserLoginPage } from "./pages/UserLoginPage";
 import { PlaceDetailPage } from "./pages/PlaceDetailPage";
 import { PlacesListPage } from "./pages/PlacesListPage";
 
@@ -23,7 +25,9 @@ export default function App() {
           <Route path="/places/:id" element={<PlaceDetailPage />} />
           <Route path="/assistant" element={<AssistantChatPage />} />
           <Route path="/contact" element={<ContactPage />} />
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={<UserLoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route
             path="/admin"
             element={

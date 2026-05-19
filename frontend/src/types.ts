@@ -5,6 +5,21 @@ export type Category = {
   updatedAt: string;
 };
 
+export type PlaceTravelFields = {
+  district: string | null;
+  address: string | null;
+  openingHours: string | null;
+  bestVisitTime: string | null;
+  ticketPrice: string | null;
+  activities: string | null;
+  suitableFor: string | null;
+  highlights: string | null;
+  faq: string | null;
+  isMustVisit: boolean;
+  isRecommendedFirstTrip: boolean;
+  estimatedVisitHours: number | null;
+};
+
 export type PlaceListItem = {
   id: number;
   name: string;
@@ -15,7 +30,7 @@ export type PlaceListItem = {
   categoryId: number | null;
   categoryName: string | null;
   coverImageUrl: string | null;
-};
+} & PlaceTravelFields;
 
 export type PlaceImage = {
   id: number;
@@ -35,7 +50,7 @@ export type PlaceDetail = {
   createdAt: string;
   updatedAt: string;
   images: PlaceImage[];
-};
+} & PlaceTravelFields;
 
 export type PlaceCreateInput = {
   name: string;
@@ -45,4 +60,4 @@ export type PlaceCreateInput = {
   facebookUrl?: string | null;
   lineUrl?: string | null;
   images: { url: string; isCover?: boolean }[];
-};
+} & Partial<PlaceTravelFields>;

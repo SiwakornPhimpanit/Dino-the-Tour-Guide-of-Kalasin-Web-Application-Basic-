@@ -97,6 +97,66 @@ export function PlaceDetailPage() {
               <p className="detailText">{place.description}</p>
             </div>
 
+            {place.district ||
+            place.address ||
+            place.openingHours ||
+            place.bestVisitTime ||
+            place.ticketPrice ||
+            place.activities ||
+            place.suitableFor ||
+            place.faq ? (
+              <div className="detailFacts">
+                {place.district ? (
+                  <div className="factCard">
+                    <div className="detailLabel">อำเภอ</div>
+                    <div>{place.district}</div>
+                  </div>
+                ) : null}
+                {place.address ? (
+                  <div className="factCard">
+                    <div className="detailLabel">ที่อยู่</div>
+                    <div>{place.address}</div>
+                  </div>
+                ) : null}
+                {place.openingHours ? (
+                  <div className="factCard">
+                    <div className="detailLabel">เวลาเปิด</div>
+                    <div>{place.openingHours}</div>
+                  </div>
+                ) : null}
+                {place.bestVisitTime ? (
+                  <div className="factCard">
+                    <div className="detailLabel">ช่วงเวลาที่เหมาะ</div>
+                    <div>{place.bestVisitTime}</div>
+                  </div>
+                ) : null}
+                {place.ticketPrice ? (
+                  <div className="factCard">
+                    <div className="detailLabel">ค่าเข้าชม</div>
+                    <div>{place.ticketPrice}</div>
+                  </div>
+                ) : null}
+                {place.activities ? (
+                  <div className="factCard">
+                    <div className="detailLabel">กิจกรรม</div>
+                    <div>{place.activities}</div>
+                  </div>
+                ) : null}
+                {place.suitableFor ? (
+                  <div className="factCard">
+                    <div className="detailLabel">เหมาะกับ</div>
+                    <div>{place.suitableFor}</div>
+                  </div>
+                ) : null}
+                {place.faq ? (
+                  <div className="factCard">
+                    <div className="detailLabel">คำถามที่พบบ่อย</div>
+                    <div>{place.faq}</div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {place.facebookUrl || place.lineUrl ? (
               <div className="detailContact">
                 <div className="detailLabel">ติดต่อ</div>

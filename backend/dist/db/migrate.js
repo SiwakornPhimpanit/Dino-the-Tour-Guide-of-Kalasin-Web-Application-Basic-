@@ -10,6 +10,11 @@ const sqlFiles = [
     "003_alter_places_google_maps.sql",
     "004_alter_categories_timestamps.sql",
     "005_alter_places_facebook_line.sql",
+    "006_alter_places_travel_fields.sql",
+    "007_travel_knowledge_tables.sql",
+    "008_seed_categories_extended.sql",
+    "009_seed_travel_knowledge.sql",
+    "010_users_and_chat.sql",
 ];
 async function run() {
     for (const file of sqlFiles) {

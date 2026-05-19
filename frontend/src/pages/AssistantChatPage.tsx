@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { chatApi, type ChatSessionSummary } from "../api/chat";
 import { placesApi } from "../api/places";
 import { env } from "../lib/env";
+import { getAuthToken, isLoggedIn } from "../lib/auth";
 import type { PlaceListItem } from "../types";
 
 type ChatRole = "user" | "assistant";
@@ -18,7 +20,8 @@ const PLACE_FALLBACK_IMG =
 
 async function consumeSseDeltas(
   body: ReadableStream<Uint8Array>,
-  onDelta: (chunk: string) => void
+  onDelta: (chunk: string) => void,
+  onMeta?: (meta: { sessionId?: number }) => void
 ): Promise<void> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -38,8 +41,9 @@ async function consumeSseDeltas(
         const payload = line.slice(5).trim();
         if (payload === "[DONE]") return;
         try {
-          const j = JSON.parse(payload) as { d?: string; error?: string };
+          const j = JSON.parse(payload) as { d?: string; error?: string; meta?: { sessionId?: number } };
           if (j.error) throw new Error(j.error);
+          if (j.meta) onMeta?.(j.meta);
           if (j.d) onDelta(j.d);
         } catch (e) {
           if (e instanceof SyntaxError) continue;
@@ -56,8 +60,9 @@ async function consumeSseDeltas(
       const payload = line.slice(5).trim();
       if (payload === "[DONE]") return;
       try {
-        const j = JSON.parse(payload) as { d?: string; error?: string };
+        const j = JSON.parse(payload) as { d?: string; error?: string; meta?: { sessionId?: number } };
         if (j.error) throw new Error(j.error);
+        if (j.meta) onMeta?.(j.meta);
         if (j.d) onDelta(j.d);
       } catch (e) {
         if (e instanceof SyntaxError) continue;
@@ -73,6 +78,10 @@ export function AssistantChatPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [places, setPlaces] = useState<PlaceListItem[]>([]);
+  const [sessionId, setSessionId] = useState<number | null>(null);
+  const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const loggedIn = isLoggedIn();
   const endRef = useRef<HTMLDivElement>(null);
 
   const scrollToEnd = useCallback(() => {
@@ -98,6 +107,49 @@ export function AssistantChatPage() {
     scrollToEnd();
   }, [messages, scrollToEnd]);
 
+  const loadHistory = useCallback(async (sid?: number) => {
+    if (!isLoggedIn()) return;
+    setHistoryLoading(true);
+    setError(null);
+    try {
+      const { data: sessionList } = await chatApi.listSessions();
+      setSessions(sessionList);
+      const targetId = sid ?? sessionList[0]?.id;
+      if (targetId == null) {
+        setSessionId(null);
+        setMessages([]);
+        return;
+      }
+      const { data } = await chatApi.getSessionMessages(targetId);
+      setSessionId(data.session.id);
+      setMessages(
+        data.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "โหลดประวัติแชทไม่สำเร็จ");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (loggedIn) void loadHistory();
+    else {
+      setSessions([]);
+      setSessionId(null);
+    }
+  }, [loggedIn, loadHistory]);
+
+  async function startNewChat() {
+    if (!isLoggedIn()) return;
+    setMessages([]);
+    setSessionId(null);
+    setError(null);
+  }
+
   async function send() {
     const text = input.trim();
     if (!text || busy) return;
@@ -113,10 +165,17 @@ export function AssistantChatPage() {
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
+      const token = getAuthToken();
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       const res = await fetch(`${apiBase}/api/chat/stream`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        headers,
+        body: JSON.stringify({
+          messages: history,
+          sessionId: sessionId ?? null,
+        }),
       });
 
       if (!res.ok) {
@@ -134,17 +193,26 @@ export function AssistantChatPage() {
 
       if (!res.body) throw new Error("ไม่ได้รับสตรีมจากเซิร์ฟเวอร์");
 
-      await consumeSseDeltas(res.body, (d) => {
-        assistantText += d;
-        setMessages((prev) => {
-          const next = [...prev];
-          const last = next[next.length - 1];
-          if (last?.role === "assistant") {
-            next[next.length - 1] = { role: "assistant", content: assistantText };
+      await consumeSseDeltas(
+        res.body,
+        (d) => {
+          assistantText += d;
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last?.role === "assistant") {
+              next[next.length - 1] = { role: "assistant", content: assistantText };
+            }
+            return next;
+          });
+        },
+        (meta) => {
+          if (meta.sessionId != null) {
+            setSessionId(meta.sessionId);
+            void chatApi.listSessions().then((r) => setSessions(r.data)).catch(() => undefined);
           }
-          return next;
-        });
-      });
+        }
+      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : "ส่งข้อความไม่สำเร็จ";
       setError(msg);
@@ -171,9 +239,41 @@ export function AssistantChatPage() {
             <Link to="/places">ดูรายการสถานที่</Link>
           </p>
         </div>
+        {loggedIn ? (
+          <div className="assistantSessionBar">
+            <label className="assistantSessionLabel">
+              <span className="muted">ประวัติแชท</span>
+              <select
+                className="assistantSessionSelect"
+                value={sessionId ?? ""}
+                disabled={historyLoading || busy}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") void startNewChat();
+                  else void loadHistory(Number(v));
+                }}
+              >
+                <option value="">แชทใหม่</option>
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="button" onClick={() => void startNewChat()} disabled={busy}>
+              เริ่มแชทใหม่
+            </button>
+          </div>
+        ) : (
+          <p className="assistantGuestHint muted">
+            <Link to="/login">เข้าสู่ระบบ</Link> หรือ <Link to="/register">สมัครสมาชิก</Link> เพื่อเก็บประวัติการแชท
+          </p>
+        )}
       </div>
 
       {error ? <div className="assistantBanner">{error}</div> : null}
+      {historyLoading ? <p className="muted assistantHistoryLoading">กำลังโหลดประวัติแชท...</p> : null}
 
       <section className="assistantPanel panel" aria-label="การสนทนา">
         <div className="assistantThread" role="log" aria-live="polite" aria-relevant="additions text">

@@ -1,12 +1,12 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { clearAdminSession } from "../lib/auth";
+import { clearUserAuth } from "../lib/auth";
 
 export function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
   function logout() {
-    clearAdminSession();
+    clearUserAuth();
     navigate("/", { replace: true });
   }
 

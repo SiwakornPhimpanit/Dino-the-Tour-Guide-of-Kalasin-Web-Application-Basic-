@@ -9,8 +9,18 @@ export class HttpError extends Error {
   }
 }
 
+import { getAuthToken } from "./auth";
+
+export function withAuth(init?: RequestInit): RequestInit {
+  const token = getAuthToken();
+  if (!token) return init ?? {};
+  const headers = new Headers(init?.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  return { ...init, headers };
+}
+
 export async function http<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, init);
+  const res = await fetch(input, withAuth(init));
   const contentType = res.headers.get("content-type") ?? "";
   const body = contentType.includes("application/json") ? await res.json().catch(() => null) : await res.text();
 

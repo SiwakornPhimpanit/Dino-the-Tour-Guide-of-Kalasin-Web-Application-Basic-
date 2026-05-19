@@ -1246,6 +1246,67 @@ label span,
   gap: 12px;
 }
 
+.assistantSessionBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.assistantSessionLabel {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.assistantSessionSelect {
+  min-width: min(220px, 70vw);
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font: inherit;
+}
+
+.assistantGuestHint {
+  margin: 0;
+  font-size: 14px;
+  max-width: 280px;
+  text-align: right;
+}
+
+.assistantHistoryLoading {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.authCardLead {
+  text-align: center;
+  margin: 0 0 20px;
+  font-size: 15px;
+}
+
+.authCardFooter {
+  text-align: center;
+  margin: 16px 0 0;
+}
+
+.authCardFooterSmall {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.navLinkButton {
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.navbarUser {
+  font-size: 14px;
+  padding: 0 4px;
+}
+
 .assistantTitle {
   margin: 0 0 6px;
   font-size: clamp(26px, 3.2vw, 34px);
