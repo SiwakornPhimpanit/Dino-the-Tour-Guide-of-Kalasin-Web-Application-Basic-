@@ -43,7 +43,7 @@ export function PlacesListPage() {
     setError(null);
     (async () => {
       try {
-        const data = await placesApi.list(selectedId, debouncedSearch || null);
+        const { data } = await placesApi.list(selectedId, debouncedSearch || null);
         if (alive) setItems(data);
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");

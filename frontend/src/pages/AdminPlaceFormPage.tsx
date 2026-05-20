@@ -1,10 +1,43 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { categoriesApi } from "../api/categories";
 import { placesApi } from "../api/places";
 import { FormField } from "../components/FormField";
 import { uploadPlaceImage } from "../storage/uploadImage";
 import type { Category } from "../types";
+
+function FormAccordion({
+  title,
+  hint,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={`placeFormSection placeFormAccordion${open ? " isOpen" : ""}`}>
+      <button
+        type="button"
+        className="placeFormAccordionHead"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <div>
+          <div className="placeFormSectionTitle">{title}</div>
+          {hint && !open ? <p className="placeFormSectionHint">{hint}</p> : null}
+        </div>
+        <span className="placeFormAccordionChevron" aria-hidden>
+          {open ? "▾" : "▸"}
+        </span>
+      </button>
+      {open ? <div className="placeFormSectionBody">{children}</div> : null}
+    </div>
+  );
+}
 
 export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
   const navigate = useNavigate();
@@ -110,12 +143,31 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
     });
   }, [totalImages]);
 
-  const coverLabels = useMemo(() => {
-    const labels: string[] = [];
-    existingUrls.forEach((_, i) => labels.push(`รูปเดิม ${i + 1}`));
-    newFiles.forEach((f, i) => labels.push(`ไฟล์ใหม่ ${i + 1}: ${f.name}`));
-    return labels;
-  }, [existingUrls.length, newFiles]);
+  const newPreviewUrls = useMemo(
+    () => newFiles.map((f) => URL.createObjectURL(f)),
+    [newFiles]
+  );
+
+  useEffect(() => {
+    return () => {
+      newPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [newPreviewUrls]);
+
+  const hasExtraInfo = Boolean(
+    district.trim() ||
+      address.trim() ||
+      openingHours.trim() ||
+      bestVisitTime.trim() ||
+      ticketPrice.trim() ||
+      estimatedVisitHours.trim()
+  );
+
+  const hasAiFields = Boolean(
+    activities.trim() || suitableFor.trim() || highlights.trim() || faq.trim()
+  );
+
+  const hasLinks = Boolean(googleMapsUrl.trim() || facebookUrl.trim() || lineUrl.trim());
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -189,11 +241,26 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
     }
   }
 
+  function removeExistingImage(index: number) {
+    setExistingUrls((prev) => prev.filter((_, i) => i !== index));
+    setCoverIndex((i) => (i > index ? i - 1 : i === index ? 0 : i));
+  }
+
+  function removeNewFile(index: number) {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+    setCoverIndex((i) => {
+      const globalIdx = existingUrls.length + index;
+      if (i > globalIdx) return i - 1;
+      if (i === globalIdx) return 0;
+      return i;
+    });
+  }
+
   const title = isEdit ? "แก้ไขสถานที่" : "เพิ่มสถานที่ใหม่";
 
   if (isEdit && loadError) {
     return (
-      <section className="panel">
+      <section className="panel placeFormPanel">
         <div className="panelHeader adminHeader">
           <div className="panelTitle">{title}</div>
           <Link to="/admin" className="button">
@@ -209,7 +276,7 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
 
   if (isEdit && detailLoading) {
     return (
-      <section className="panel">
+      <section className="panel placeFormPanel">
         <div className="panelHeader adminHeader">
           <div className="panelTitle">{title}</div>
         </div>
@@ -219,349 +286,300 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
   }
 
   return (
-    <section className="panel">
-      <div className="panelHeader adminHeader">
+    <section className="panel placeFormPanel">
+      <div className="panelHeader adminHeader placeFormHeader">
         <div>
           <div className="panelTitle">{title}</div>
           <div className="muted panelSubtitle">
-            {isEdit ? "แก้ไขข้อมูลและรูปภาพ จากนั้นบันทึกการเปลี่ยนแปลง" : "กรอกข้อมูลแล้วอัปโหลดรูปไป Cloudinary"}
+            กรอกเฉพาะข้อมูลหลักก่อน ส่วนอื่นเปิดเพิ่มได้เมื่อต้องการ
           </div>
         </div>
-      </div>
-      <div className="panelBody">
-  <form className="placeForm" onSubmit={onSubmit}>
-    {error ? <div className="authError">{error}</div> : null}
-
-    {/* ================= BASIC ================= */}
-    <div className="formSection">
-      <div className="sectionTitle">ข้อมูลหลัก</div>
-
-      <div className="grid2">
-        <FormField label="ชื่อสถานที่">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </FormField>
-
-        <FormField label="หมวดหมู่">
-          <select
-            value={categoryId === "" ? "" : String(categoryId)}
-            onChange={(e) =>
-              setCategoryId(
-                e.target.value ? Number(e.target.value) : ""
-              )
-            }
-            required
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        <Link to="/admin" className="button">
+          กลับ
+        </Link>
       </div>
 
-      <FormField label="รายละเอียด">
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={4}
-          required
-        />
-      </FormField>
-    </div>
+      <div className="panelBody placeFormBody">
+        <form className="placeForm" onSubmit={onSubmit}>
+          {error ? <div className="authError">{error}</div> : null}
 
-    {/* ================= EXTRA ================= */}
-    <div className="formSection">
-      <div className="sectionTitle">
-        ข้อมูลเพิ่มเติม
-      </div>
-
-      <div className="grid2">
-        <FormField label="อำเภอ">
-          <input
-            value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            placeholder="เช่น เมืองกาฬสินธุ์"
-          />
-        </FormField>
-
-        <FormField label="ชั่วโมงเที่ยว">
-          <input
-            type="number"
-            min={0}
-            max={24}
-            step={0.5}
-            value={estimatedVisitHours}
-            onChange={(e) =>
-              setEstimatedVisitHours(e.target.value)
-            }
-            placeholder="เช่น 2.5"
-          />
-        </FormField>
-      </div>
-
-      <FormField label="ที่อยู่">
-        <input
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
-      </FormField>
-
-      <div className="grid2">
-        <FormField label="เวลาเปิด">
-          <input
-            value={openingHours}
-            onChange={(e) =>
-              setOpeningHours(e.target.value)
-            }
-          />
-        </FormField>
-
-        <FormField label="ช่วงเวลาที่เหมาะ">
-          <input
-            value={bestVisitTime}
-            onChange={(e) =>
-              setBestVisitTime(e.target.value)
-            }
-          />
-        </FormField>
-      </div>
-
-      <div className="grid2">
-        <FormField label="ค่าเข้าชม">
-          <input
-            value={ticketPrice}
-            onChange={(e) =>
-              setTicketPrice(e.target.value)
-            }
-            placeholder="ฟรี / 80 บาท"
-          />
-        </FormField>
-
-        <FormField label="เหมาะกับ">
-          <input
-            value={suitableFor}
-            onChange={(e) =>
-              setSuitableFor(e.target.value)
-            }
-            placeholder="ครอบครัว, เด็ก"
-          />
-        </FormField>
-      </div>
-
-      <FormField label="กิจกรรม">
-        <textarea
-          value={activities}
-          onChange={(e) =>
-            setActivities(e.target.value)
-          }
-          rows={2}
-        />
-      </FormField>
-
-      <FormField label="ไฮไลต์">
-        <textarea
-          value={highlights}
-          onChange={(e) =>
-            setHighlights(e.target.value)
-          }
-          rows={2}
-        />
-      </FormField>
-
-      <FormField label="FAQ">
-        <textarea
-          value={faq}
-          onChange={(e) => setFaq(e.target.value)}
-          rows={2}
-        />
-      </FormField>
-    </div>
-
-    {/* ================= OPTIONS ================= */}
-    <div className="formSection">
-      <div className="sectionTitle">
-        ตัวเลือกพิเศษ
-      </div>
-
-      <div className="trip-options">
-        <label
-          className={`trip-card ${
-            isMustVisit ? "active" : ""
-          }`}
-        >
-          <input
-            type="checkbox"
-            checked={isMustVisit}
-            onChange={(e) =>
-              setIsMustVisit(e.target.checked)
-            }
-          />
-
-          <div className="left">
-            <div className="icon">✨</div>
-
-            <div>
-              <div className="title">
-                สถานที่ไฮไลต์
+          <div className="placeFormLayout">
+            <div className="placeFormLayoutMain">
+              <div className="placeFormSection placeFormSectionPrimary">
+                <div className="placeFormSectionTitle">ข้อมูลหลัก</div>
+                <div className="placeFormSectionBody">
+                  <div className="grid2">
+                    <FormField label="ชื่อสถานที่">
+                      <input value={name} onChange={(e) => setName(e.target.value)} required />
+                    </FormField>
+                    <FormField label="หมวดหมู่">
+                      <select
+                        value={categoryId === "" ? "" : String(categoryId)}
+                        onChange={(e) =>
+                          setCategoryId(e.target.value ? Number(e.target.value) : "")
+                        }
+                        required
+                      >
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                  </div>
+                  <FormField label="รายละเอียด" hint="อธิบายสั้นๆ ว่าสถานที่นี้มีอะไรน่าสนใจ">
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={4}
+                      required
+                    />
+                  </FormField>
+                </div>
               </div>
 
-              <div className="desc">
-                สถานที่ยอดนิยม / มีชื่อเสียง
+              <div className="placeFormAccordions">
+                <FormAccordion
+                  title="ที่ตั้ง & เวลาเที่ยว"
+                  hint="อำเภอ ที่อยู่ เวลาเปิด ค่าเข้าชม (ไม่บังคับ)"
+                  defaultOpen={hasExtraInfo}
+                >
+                  <div className="grid2">
+                    <FormField label="อำเภอ">
+                      <input
+                        value={district}
+                        onChange={(e) => setDistrict(e.target.value)}
+                        placeholder="เช่น เมืองกาฬสินธุ์"
+                      />
+                    </FormField>
+                    <FormField label="ชั่วโมงเที่ยวโดยประมาณ">
+                      <input
+                        type="number"
+                        min={0}
+                        max={24}
+                        step={0.5}
+                        value={estimatedVisitHours}
+                        onChange={(e) => setEstimatedVisitHours(e.target.value)}
+                        placeholder="เช่น 2.5"
+                      />
+                    </FormField>
+                  </div>
+                  <FormField label="ที่อยู่">
+                    <input value={address} onChange={(e) => setAddress(e.target.value)} />
+                  </FormField>
+                  <div className="grid2">
+                    <FormField label="เวลาเปิด">
+                      <input value={openingHours} onChange={(e) => setOpeningHours(e.target.value)} />
+                    </FormField>
+                    <FormField label="ช่วงเวลาที่เหมาะ">
+                      <input value={bestVisitTime} onChange={(e) => setBestVisitTime(e.target.value)} />
+                    </FormField>
+                  </div>
+                  <div className="grid2">
+                    <FormField label="ค่าเข้าชม">
+                      <input
+                        value={ticketPrice}
+                        onChange={(e) => setTicketPrice(e.target.value)}
+                        placeholder="ฟรี / 80 บาท"
+                      />
+                    </FormField>
+                    <FormField label="เหมาะกับ">
+                      <input
+                        value={suitableFor}
+                        onChange={(e) => setSuitableFor(e.target.value)}
+                        placeholder="ครอบครัว, เด็ก"
+                      />
+                    </FormField>
+                  </div>
+                </FormAccordion>
+
+                <FormAccordion
+                  title="ข้อมูลสำหรับ AI"
+                  hint="กิจกรรม ไฮไลต์ FAQ — ช่วยให้ Dino bot ตอบได้ละเอียดขึ้น"
+                  defaultOpen={hasAiFields}
+                >
+                  <FormField label="กิจกรรม">
+                    <textarea value={activities} onChange={(e) => setActivities(e.target.value)} rows={2} />
+                  </FormField>
+                  <FormField label="ไฮไลต์">
+                    <textarea value={highlights} onChange={(e) => setHighlights(e.target.value)} rows={2} />
+                  </FormField>
+                  <FormField label="FAQ">
+                    <textarea
+                      value={faq}
+                      onChange={(e) => setFaq(e.target.value)}
+                      rows={3}
+                      placeholder="คำถามที่พบบ่อยและคำตอบ"
+                    />
+                  </FormField>
+                </FormAccordion>
+
+                <FormAccordion
+                  title="ลิงก์ & ช่องทางติดต่อ"
+                  hint="Google Maps, Facebook, LINE"
+                  defaultOpen={hasLinks}
+                >
+                  <FormField label="Google Maps">
+                    <input
+                      type="url"
+                      value={googleMapsUrl}
+                      onChange={(e) => setGoogleMapsUrl(e.target.value)}
+                      placeholder="https://maps.app.goo.gl/..."
+                    />
+                  </FormField>
+                  <div className="grid2">
+                    <FormField label="Facebook">
+                      <input
+                        type="url"
+                        value={facebookUrl}
+                        onChange={(e) => setFacebookUrl(e.target.value)}
+                        placeholder="https://facebook.com/..."
+                      />
+                    </FormField>
+                    <FormField label="LINE">
+                      <input
+                        type="url"
+                        value={lineUrl}
+                        onChange={(e) => setLineUrl(e.target.value)}
+                        placeholder="https://line.me/..."
+                      />
+                    </FormField>
+                  </div>
+                </FormAccordion>
               </div>
             </div>
-          </div>
 
-          <div className="circle">
-            {isMustVisit && "✓"}
-          </div>
-        </label>
+            <aside className="placeFormLayoutSide">
+              <div className="placeFormSection">
+                <div className="placeFormSectionTitle">รูปภาพ</div>
+                <div className="placeFormSectionBody">
+                  <label className="placeUploadZone">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      hidden
+                      onChange={(e) => setNewFiles(Array.from(e.target.files ?? []))}
+                    />
+                    <span className="placeUploadIcon" aria-hidden>
+                      📷
+                    </span>
+                    <span className="placeUploadText">คลิกเพื่อเลือกรูป หรือลากไฟล์มาวาง</span>
+                    <span className="placeUploadHint muted">รองรับหลายรูป · ต้องมีอย่างน้อย 1 รูป</span>
+                  </label>
 
-        <label
-          className={`trip-card ${
-            isRecommendedFirstTrip
-              ? "active"
-              : ""
-          }`}
-        >
-          <input
-            type="checkbox"
-            checked={isRecommendedFirstTrip}
-            onChange={(e) =>
-              setIsRecommendedFirstTrip(
-                e.target.checked
-              )
-            }
-          />
-
-          <div className="left">
-            <div className="icon">🧳</div>
-
-            <div>
-              <div className="title">
-                เหมาะสำหรับมือใหม่
+                  {totalImages > 0 ? (
+                    <div className="placeImageGrid">
+                      {existingUrls.map((url, i) => (
+                        <div
+                          key={`ex-${url}`}
+                          className={`placeImageTile${coverIndex === i ? " isCover" : ""}`}
+                        >
+                          <img src={url} alt="" />
+                          <button
+                            type="button"
+                            className="placeImageCoverBtn"
+                            onClick={() => setCoverIndex(i)}
+                          >
+                            {coverIndex === i ? "รูปปก" : "ตั้งเป็นปก"}
+                          </button>
+                          <button
+                            type="button"
+                            className="placeImageRemoveBtn"
+                            aria-label="ลบรูป"
+                            onClick={() => removeExistingImage(i)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      {newPreviewUrls.map((url, i) => {
+                        const globalIdx = existingUrls.length + i;
+                        return (
+                          <div
+                            key={`new-${url}`}
+                            className={`placeImageTile${coverIndex === globalIdx ? " isCover" : ""}`}
+                          >
+                            <img src={url} alt="" />
+                            <span className="placeImageNewBadge">ใหม่</span>
+                            <button
+                              type="button"
+                              className="placeImageCoverBtn"
+                              onClick={() => setCoverIndex(globalIdx)}
+                            >
+                              {coverIndex === globalIdx ? "รูปปก" : "ตั้งเป็นปก"}
+                            </button>
+                            <button
+                              type="button"
+                              className="placeImageRemoveBtn"
+                              aria-label="ลบรูป"
+                              onClick={() => removeNewFile(i)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
-              <div className="desc">
-                แนะนำสำหรับมาครั้งแรก
+              <div className="placeFormSection placeFormSectionCompact">
+                <div className="placeFormSectionTitle">ป้ายแนะนำ</div>
+                <div className="placeFormSectionBody">
+                  <div className="trip-options trip-optionsStack">
+                    <label className={`trip-card${isMustVisit ? " active" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={isMustVisit}
+                        onChange={(e) => setIsMustVisit(e.target.checked)}
+                      />
+                      <div className="trip-cardMain">
+                        <span className="trip-cardIcon" aria-hidden>
+                          ✨
+                        </span>
+                        <div>
+                          <div className="trip-cardTitle">สถานที่ไฮไลต์</div>
+                          <div className="trip-cardDesc">ยอดนิยม / มีชื่อเสียง</div>
+                        </div>
+                      </div>
+                      <span className="trip-cardCheck">{isMustVisit ? "✓" : ""}</span>
+                    </label>
+                    <label className={`trip-card${isRecommendedFirstTrip ? " active" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={isRecommendedFirstTrip}
+                        onChange={(e) => setIsRecommendedFirstTrip(e.target.checked)}
+                      />
+                      <div className="trip-cardMain">
+                        <span className="trip-cardIcon" aria-hidden>
+                          🧳
+                        </span>
+                        <div>
+                          <div className="trip-cardTitle">เหมาะมือใหม่</div>
+                          <div className="trip-cardDesc">แนะนำสำหรับมาครั้งแรก</div>
+                        </div>
+                      </div>
+                      <span className="trip-cardCheck">{isRecommendedFirstTrip ? "✓" : ""}</span>
+                    </label>
+                  </div>
+                </div>
               </div>
-            </div>
+            </aside>
           </div>
 
-          <div className="circle">
-            {isRecommendedFirstTrip && "✓"}
+          <div className="placeFormActions">
+            <Link to="/admin" className="button">
+              ยกเลิก
+            </Link>
+            <button className="button buttonPrimary" type="submit" disabled={busy}>
+              {busy ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+            </button>
           </div>
-        </label>
+        </form>
       </div>
-    </div>
-
-    {/* ================= LINKS ================= */}
-    <div className="formSection">
-      <div className="sectionTitle">
-        ลิงก์ & ช่องทางติดต่อ
-      </div>
-
-      <FormField label="Google Maps">
-        <input
-          type="url"
-          value={googleMapsUrl}
-          onChange={(e) =>
-            setGoogleMapsUrl(e.target.value)
-          }
-          placeholder="https://maps.app.goo.gl/..."
-        />
-      </FormField>
-
-      <div className="grid2">
-        <FormField label="Facebook">
-          <input
-            type="url"
-            value={facebookUrl}
-            onChange={(e) =>
-              setFacebookUrl(e.target.value)
-            }
-            placeholder="https://facebook.com/..."
-          />
-        </FormField>
-
-        <FormField label="LINE">
-          <input
-            type="url"
-            value={lineUrl}
-            onChange={(e) =>
-              setLineUrl(e.target.value)
-            }
-            placeholder="https://line.me/..."
-          />
-        </FormField>
-      </div>
-    </div>
-
-    {/* ================= IMAGE ================= */}
-    <div className="formSection">
-      <div className="sectionTitle">
-        รูปภาพ
-      </div>
-
-      <FormField
-        label={
-          isEdit
-            ? "เพิ่มรูปใหม่"
-            : "อัปโหลดรูป"
-        }
-      >
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) =>
-            setNewFiles(
-              Array.from(e.target.files ?? [])
-            )
-          }
-        />
-      </FormField>
-
-      {totalImages > 1 ? (
-        <FormField label="เลือกรูปปก">
-          <select
-            value={String(coverIndex)}
-            onChange={(e) =>
-              setCoverIndex(
-                Number(e.target.value)
-              )
-            }
-          >
-            {coverLabels.map((label, i) => (
-              <option
-                key={`${label}-${i}`}
-                value={i}
-              >
-                {label}
-              </option>
-            ))}
-          </select>
-        </FormField>
-      ) : null}
-    </div>
-
-    <div className="submitBar">
-      <button
-        className="button buttonPrimary saveButton"
-        type="submit"
-        disabled={busy}
-      >
-        {busy
-          ? "กำลังบันทึก..."
-          : "บันทึกข้อมูล"}
-      </button>
-    </div>
-  </form>
-</div>
     </section>
   );
 }

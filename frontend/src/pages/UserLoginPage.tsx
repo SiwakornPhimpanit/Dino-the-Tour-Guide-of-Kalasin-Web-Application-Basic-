@@ -38,13 +38,14 @@ export function UserLoginPage() {
   return (
     <section className="authPage">
       <div className="authCard">
-        <h1 className="authCardTitle">เข้าสู่ระบบสมาชิก</h1>
-        <p className="muted authCardLead">เข้าสู่ระบบเพื่อเก็บประวัติการแชทกับผู้ช่วย AI</p>
+        <div style={{display : 'flex' , justifyContent : 'center' , marginTop : '20px'}}>
+          <h1 className="authCardTitle">เข้าสู่ระบบสำหรับสมาชิก</h1>
+        </div>
         <form className="authForm" onSubmit={onSubmit}>
           {error ? <div className="authError">{error}</div> : null}
           <label className="authField">
-            <span className="authFieldIcon" aria-hidden>
-              @
+            <span className="authFieldIcon" aria-hidden style={{marginTop : '20px'}}>
+              อีเมลผู้ใช้งาน
             </span>
             <input
               type="email"
@@ -56,8 +57,8 @@ export function UserLoginPage() {
             />
           </label>
           <label className="authField">
-            <span className="authFieldIcon" aria-hidden>
-              *
+            <span className="authFieldIcon" aria-hidden style={{marginTop : '20px'}}>
+              รหัสผ่านผู้ใช้งาน
             </span>
             <input
               type="password"
@@ -68,15 +69,15 @@ export function UserLoginPage() {
               required
             />
           </label>
-          <button className="button buttonPrimary authSubmit" type="submit" disabled={busy}>
+          <div style={{display : 'flex' , justifyContent : 'center' , marginTop : '20px'}}>
+          <button className="button buttonPrimary authSubmit" type="submit" disabled={busy}> 
             {busy ? "กำลังตรวจสอบ..." : "เข้าสู่ระบบ"}
           </button>
+          </div>
+    
         </form>
         <p className="authCardFooter">
           ยังไม่มีบัญชี? <Link to="/register">สมัครสมาชิก</Link>
-        </p>
-        <p className="authCardFooter authCardFooterSmall">
-          <Link to="/admin/login">เข้าสู่ระบบผู้ดูแล</Link>
         </p>
       </div>
     </section>

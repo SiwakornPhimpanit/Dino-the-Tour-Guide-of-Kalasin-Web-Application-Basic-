@@ -1,14 +1,6 @@
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { clearUserAuth } from "../lib/auth";
-
+import { Link, Outlet, useLocation } from "react-router-dom";
 export function AdminLayout() {
-  const navigate = useNavigate();
   const location = useLocation();
-
-  function logout() {
-    clearUserAuth();
-    navigate("/", { replace: true });
-  }
 
   const placesListActive =
     location.pathname === "/admin" || location.pathname.startsWith("/admin/edit/");
@@ -30,11 +22,6 @@ export function AdminLayout() {
               เพิ่มหมวดหมู่
             </Link>
           </nav>
-          <div className="adminToolbarActions">
-            <button type="button" className="button" onClick={logout}>
-              ออกจากระบบ
-            </button>
-          </div>
         </div>
       </div>
       <Outlet />

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { authApi } from "../api/auth";
 import { setStoredAuth } from "../lib/auth";
 import { HttpError } from "../lib/http";
@@ -38,11 +38,13 @@ export function AdminLoginPage() {
   return (
     <section className="authPage">
       <div className="authCard">
-        <h1 className="authCardTitle">เข้าสู่ระบบผู้ดูแล</h1>
+        <div style={{display : 'flex' , justifyContent : 'center' , marginTop : '20px'}}>
+          <h1 className="authCardTitle">เข้าสู่ระบบผู้ดูแลระบบ</h1>
+        </div>
         <form className="authForm" onSubmit={onSubmit}>
           {error ? <div className="authError">{error}</div> : null}
-          <label className="field">
-            <span>อีเมล</span>
+          <label className="field" >
+            <span style={{marginTop : '20px'}}>อีเมลผู้ดูแลระบบ</span>
             <input
               type="email"
               autoComplete="username"
@@ -51,8 +53,8 @@ export function AdminLoginPage() {
               required
             />
           </label>
-          <label className="field">
-            <span>รหัสผ่าน</span>
+          <label >
+            <span className="field" style={{marginTop : '20px'}}>รหัสผ่าน</span>
             <input
               type="password"
               autoComplete="current-password"
@@ -61,15 +63,12 @@ export function AdminLoginPage() {
               required
             />
           </label>
+          <div style={{display : 'flex' , justifyContent : 'center' , marginTop : '20px'}}>
           <button className="button buttonPrimary authSubmit" type="submit" disabled={busy}>
             {busy ? "กำลังตรวจสอบ..." : "เข้าสู่ระบบ"}
           </button>
+          </div>
         </form>
-        <p className="authCardFooter">
-          <Link to="/">กลับหน้าแรก</Link>
-          {" · "}
-          <Link to="/login">เข้าสู่ระบบสมาชิก</Link>
-        </p>
       </div>
     </section>
   );

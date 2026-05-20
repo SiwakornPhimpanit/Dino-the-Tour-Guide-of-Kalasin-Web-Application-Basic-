@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { placesApi } from "../api/places";
 import { PlaceCard } from "../components/PlaceCard";
+import { HERO_KALASIN_CULTURE_IMAGE, HERO_KALASIN_DINO_SCENE_IMAGE } from "../lib/media";
 import type { PlaceListItem } from "../types";
 
-export function HomePage() {
+export function TravelGuidePage() {
   const [places, setPlaces] = useState<PlaceListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -12,7 +13,7 @@ export function HomePage() {
     let alive = true;
     (async () => {
       try {
-        const data = await placesApi.list();
+        const { data } = await placesApi.list();
         if (alive) setPlaces(data.slice(0, 6));
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
@@ -25,24 +26,30 @@ export function HomePage() {
 
   return (
     <div className="homePage">
-      <section className="hero">
-        <div className="heroBg" aria-hidden />
-        <div className="heroOverlay" />
-        <div className="heroContent">
-          <p className="heroKicker">ค้นพบกาฬสินธุ์</p>
-          <h1 className="heroTitle">แหล่งท่องเที่ยวและประสบการณ์ที่จดจำได้</h1>
-          <p className="heroLead">
-            เลือกดูสถานที่ ร้านอาหาร และที่พัก
-          </p>
-          <div className="heroActions">
-            <Link className="button buttonPrimary heroCta" to="/places">
-              ดูสถานที่ทั้งหมด
-            </Link>
-            <Link className="button heroGhost" to="/contact">
-              ติดต่อเรา
-            </Link>
-          </div>
+      <section className="heroCollage" aria-label="แนะนำจังหวัดกาฬสินธุ์">
+        <div
+          className="heroCollageSide heroCollageSideLeft"
+          style={{ ["--hero-side-img" as string]: `url("${HERO_KALASIN_CULTURE_IMAGE}")` }}
+          role="img"
+          aria-label="วัฒนธรรมผ้าไหมแพรวา จังหวัดกาฬสินธุ์"
+        />
+        <div className="heroCollageCenter">
+          <p className="heroCollageKicker">แหล่งท่องเที่ยว</p>
+          <h1 className="heroCollageTitle">กาฬสินธุ์</h1>
+          <p className="heroCollageTagline">พาไปรู้จักสถานที่สวยงามทั่วจังหวัด</p>
+          <Link className="heroCollagePill buttonPrimary" to="/places">
+            <span className="heroCollagePillIcon" aria-hidden>
+              📍
+            </span>
+            <span>ดูสถานที่ท่องเที่ยวทั้งหมด</span>
+          </Link>
         </div>
+        <div
+          className="heroCollageSide heroCollageSideRight"
+          style={{ ["--hero-side-img" as string]: `url("${HERO_KALASIN_DINO_SCENE_IMAGE}")` }}
+          role="img"
+          aria-label="พิพิธภัณฑ์ไดโนเสาร์ภาคอีสาน"
+        />
       </section>
 
       <section className="section">

@@ -81,6 +81,7 @@ export function AssistantChatPage() {
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const loggedIn = isLoggedIn();
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -92,7 +93,7 @@ export function AssistantChatPage() {
     let alive = true;
     (async () => {
       try {
-        const data = await placesApi.list();
+        const { data } = await placesApi.list();
         if (alive) setPlaces(data);
       } catch {
         /* แชทยังใช้ได้ แต่จะไม่เติมลิงก์จากฐานข้อมูลอัตโนมัติ */
@@ -107,47 +108,68 @@ export function AssistantChatPage() {
     scrollToEnd();
   }, [messages, scrollToEnd]);
 
-  const loadHistory = useCallback(async (sid?: number) => {
+  const refreshSessions = useCallback(async () => {
     if (!isLoggedIn()) return;
-    setHistoryLoading(true);
-    setError(null);
     try {
-      const { data: sessionList } = await chatApi.listSessions();
-      setSessions(sessionList);
-      const targetId = sid ?? sessionList[0]?.id;
-      if (targetId == null) {
-        setSessionId(null);
-        setMessages([]);
-        return;
-      }
-      const { data } = await chatApi.getSessionMessages(targetId);
-      setSessionId(data.session.id);
-      setMessages(
-        data.messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        }))
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "โหลดประวัติแชทไม่สำเร็จ");
-    } finally {
-      setHistoryLoading(false);
+      const { data } = await chatApi.listSessions();
+      setSessions(data);
+    } catch {
+      /* รายการประวัติโหลดไม่ได้ แต่แชทยังใช้ได้ */
     }
   }, []);
 
+  const openSession = useCallback(
+    async (id: number) => {
+      if (!isLoggedIn() || busy) return;
+      setHistoryLoading(true);
+      setError(null);
+      setSidebarOpen(false);
+      try {
+        const { data } = await chatApi.getSessionMessages(id);
+        setSessionId(data.session.id);
+        setMessages(
+          data.messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          }))
+        );
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "โหลดประวัติแชทไม่สำเร็จ");
+      } finally {
+        setHistoryLoading(false);
+      }
+    },
+    [busy]
+  );
+
   useEffect(() => {
-    if (loggedIn) void loadHistory();
+    if (loggedIn) void refreshSessions();
     else {
       setSessions([]);
       setSessionId(null);
+      setMessages([]);
     }
-  }, [loggedIn, loadHistory]);
+  }, [loggedIn, refreshSessions]);
 
   async function startNewChat() {
     if (!isLoggedIn()) return;
     setMessages([]);
     setSessionId(null);
     setError(null);
+    setSidebarOpen(false);
+  }
+
+  async function deleteSession(id: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (busy) return;
+    if (!window.confirm("ลบการสนทนานี้?")) return;
+    try {
+      await chatApi.deleteSession(id);
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      if (sessionId === id) void startNewChat();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ลบการสนทนาไม่สำเร็จ");
+    }
   }
 
   async function send() {
@@ -209,7 +231,7 @@ export function AssistantChatPage() {
         (meta) => {
           if (meta.sessionId != null) {
             setSessionId(meta.sessionId);
-            void chatApi.listSessions().then((r) => setSessions(r.data)).catch(() => undefined);
+            void refreshSessions();
           }
         }
       );
@@ -231,51 +253,88 @@ export function AssistantChatPage() {
 
   return (
     <div className="assistantPage">
-      <div className="assistantTop">
-        <div>
-          <h1 className="assistantTitle">ผู้ช่วยแนะนำที่เที่ยวกาฬสินธุ์</h1>
-          <p className="muted assistantLead">
-            ตอบจากข้อมูลสถานที่ในระบบ · ภาษาไทย ·{" "}
-            <Link to="/places">ดูรายการสถานที่</Link>
-          </p>
+      {sidebarOpen ? (
+        <button
+          type="button"
+          className="assistantSidebarBackdrop"
+          aria-label="ปิดประวัติแชท"
+          onClick={() => setSidebarOpen(false)}
+        />
+      ) : null}
+
+      <aside className={`assistantSidebar${sidebarOpen ? " isOpen" : ""}`} aria-label="ประวัติแชท">
+        <div className="assistantSidebarHead">
+          <button
+            type="button"
+            className="assistantSidebarNew"
+            onClick={() => void startNewChat()}
+            disabled={busy}
+          >
+            <span className="assistantSidebarNewIcon" aria-hidden>
+              +
+            </span>
+            แชทใหม่
+          </button>
         </div>
-        {loggedIn ? (
-          <div className="assistantSessionBar">
-            <label className="assistantSessionLabel">
-              <span className="muted">ประวัติแชท</span>
-              <select
-                className="assistantSessionSelect"
-                value={sessionId ?? ""}
-                disabled={historyLoading || busy}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === "") void startNewChat();
-                  else void loadHistory(Number(v));
-                }}
+        <div className="assistantSidebarList">
+          {sessions.length === 0 ? (
+            <p className="assistantSidebarEmpty muted">ยังไม่มีประวัติการสนทนา</p>
+          ) : (
+            sessions.map((s) => (
+              <div
+                key={s.id}
+                className={`assistantSidebarItem${sessionId === s.id ? " isActive" : ""}`}
               >
-                <option value="">แชทใหม่</option>
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" className="button" onClick={() => void startNewChat()} disabled={busy}>
-              เริ่มแชทใหม่
-            </button>
+                <button
+                  type="button"
+                  className="assistantSidebarItemBtn"
+                  disabled={busy || historyLoading}
+                  onClick={() => void openSession(s.id)}
+                >
+                  <span className="assistantSidebarItemTitle">{s.title}</span>
+                  <span className="assistantSidebarItemDate">{formatSessionDate(s.updatedAt)}</span>
+                </button>
+                <button
+                  type="button"
+                  className="assistantSidebarItemDelete"
+                  aria-label={`ลบ ${s.title}`}
+                  disabled={busy}
+                  onClick={(e) => void deleteSession(s.id, e)}
+                >
+                  ×
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </aside>
+
+      <div className="assistantMain">
+        <div className="assistantTop">
+          <button
+            type="button"
+            className="assistantSidebarToggle"
+            aria-label="เปิดประวัติแชท"
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen((v) => !v)}
+          >
+            <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden focusable="false">
+              <path
+                fill="currentColor"
+                d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"
+              />
+            </svg>
+          </button>
+          <div>
+            <h1 className="assistantTitle">Dino Bot</h1>
+            <p className="muted assistantLead">ตอบจากข้อมูลระบบเท่านั้น!!!</p>
           </div>
-        ) : (
-          <p className="assistantGuestHint muted">
-            <Link to="/login">เข้าสู่ระบบ</Link> หรือ <Link to="/register">สมัครสมาชิก</Link> เพื่อเก็บประวัติการแชท
-          </p>
-        )}
-      </div>
+        </div>
 
-      {error ? <div className="assistantBanner">{error}</div> : null}
-      {historyLoading ? <p className="muted assistantHistoryLoading">กำลังโหลดประวัติแชท...</p> : null}
+        {error ? <div className="assistantBanner">{error}</div> : null}
+        {historyLoading ? <p className="muted assistantHistoryLoading">กำลังโหลดประวัติแชท...</p> : null}
 
-      <section className="assistantPanel panel" aria-label="การสนทนา">
+        <section className="assistantPanel panel" aria-label="การสนทนา">
         <div className="assistantThread" role="log" aria-live="polite" aria-relevant="additions text">
           <div className="assistantIntro muted">
             สวัสดีค่ะ/ครับ ถามได้เลยว่าอยากไปแบบไหน หรือหาสถานที่แนวใดในจังหวัดกาฬสินธุ์
@@ -344,12 +403,27 @@ export function AssistantChatPage() {
           </div>
           <p className="muted assistantHint">Enter ส่งข้อความ · Shift+Enter ขึ้นบรรทัดใหม่</p>
         </div>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }
 
-const ASSISTANT_SHARE_TITLE = "ผู้ช่วยแนะนำที่เที่ยวกาฬสินธุ์";
+function formatSessionDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  if (diffMs < 86_400_000) {
+    return d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+  }
+  if (diffMs < 604_800_000) {
+    return d.toLocaleDateString("th-TH", { weekday: "short" });
+  }
+  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+}
+
+const ASSISTANT_SHARE_TITLE = "Dino Bot";
 
 function assistantSharePageUrl(): string {
   if (typeof window === "undefined") return "";

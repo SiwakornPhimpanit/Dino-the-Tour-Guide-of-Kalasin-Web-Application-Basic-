@@ -1,9 +1,9 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { clearUserAuth, getStoredAuth, isAdminSession } from "../lib/auth";
+import { Link, useLocation } from "react-router-dom";
+import { getStoredAuth, isAdminSession, isLoggedIn } from "../lib/auth";
+import { UserMenu } from "./UserMenu";
 
 export function Navbar() {
   const location = useLocation();
-  const navigate = useNavigate();
   const isAdminArea = location.pathname.startsWith("/admin");
   const auth = getStoredAuth();
 
@@ -12,9 +12,9 @@ export function Navbar() {
     return `navLink${active ? " navLinkActive" : ""}`;
   }
 
-  function logout() {
-    clearUserAuth();
-    navigate("/", { replace: true });
+  function adminNavLinkClass() {
+    const active = location.pathname.startsWith("/admin");
+    return `navLink${active ? " navLinkActive" : ""}`;
   }
 
   return (
@@ -26,24 +26,20 @@ export function Navbar() {
         <Link className={navLinkClass("/")} to="/">
           หน้าแรก
         </Link>
-        {!isAdminArea ? (
+        {isLoggedIn() && auth?.user.role === "member" && !isAdminArea ? (
           <Link className={navLinkClass("/assistant")} to="/assistant">
-            ผู้ช่วย AI
+            Dino bot
           </Link>
         ) : null}
         <Link className={navLinkClass("/contact")} to="/contact">
           ติดต่อ
         </Link>
-        {auth && !isAdminArea ? (
-          <span className="navbarUser muted">
-            {auth.user.displayName ?? auth.user.email}
-          </span>
+        {isAdminSession() ? (
+          <Link className={adminNavLinkClass()} to="/admin">
+            ปรับปรุงเว็บไซต์
+          </Link>
         ) : null}
-        {auth ? (
-          <button type="button" className="navLink navLinkButton" onClick={logout}>
-            ออกจากระบบ
-          </button>
-        ) : (
+        {!isLoggedIn() ? (
           <>
             <Link className={navLinkClass("/login")} to="/login">
               เข้าสู่ระบบ
@@ -51,17 +47,15 @@ export function Navbar() {
             <Link className={navLinkClass("/register")} to="/register">
               สมัครสมาชิก
             </Link>
+            <Link
+              className={navLinkClass("/admin/login" )} to="/admin/login"
+            >
+              สำหรับผู้ดูแลระบบ
+            </Link>
           </>
-        )}
-        {isAdminSession() ? (
-          <Link className="navbarAdmin" to="/admin">
-            แอดมิน
-          </Link>
-        ) : (
-          <Link className="navbarAdmin" to="/admin/login">
-            แอดมิน
-          </Link>
-        )}
+        ) : isLoggedIn() ? (
+          <UserMenu />
+        ) : null}
       </nav>
     </header>
   );

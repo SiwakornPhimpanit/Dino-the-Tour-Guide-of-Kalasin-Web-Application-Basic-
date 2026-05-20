@@ -2,13 +2,16 @@ import { Route, Routes } from "react-router-dom";
 import { AdminLayout } from "./components/AdminLayout";
 import { Navbar } from "./components/Navbar";
 import { RequireAdmin } from "./components/RequireAdmin";
+import { RequireAuth } from "./components/RequireAuth";
+import { RequireMember } from "./components/RequireMember";
 import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
 import { AdminPlaceFormPage } from "./pages/AdminPlaceFormPage";
 import { AdminPlacesPage } from "./pages/AdminPlacesPage";
 import { AssistantChatPage } from "./pages/AssistantChatPage";
 import { ContactPage } from "./pages/ContactPage";
-import { HomePage } from "./pages/HomePage";
+import { TravelGuidePage } from "./pages/TravelGuidePage";
 import { AdminLoginPage } from "./pages/AdminLoginPage";
+import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { UserLoginPage } from "./pages/UserLoginPage";
 import { PlaceDetailPage } from "./pages/PlaceDetailPage";
@@ -20,13 +23,28 @@ export default function App() {
       <Navbar />
       <main className="mainShell">
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<TravelGuidePage />} />
           <Route path="/places" element={<PlacesListPage />} />
           <Route path="/places/:id" element={<PlaceDetailPage />} />
-          <Route path="/assistant" element={<AssistantChatPage />} />
+          <Route
+            path="/assistant"
+            element={
+              <RequireMember>
+                <AssistantChatPage />
+              </RequireMember>
+            }
+          />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<UserLoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <ProfilePage />
+              </RequireAuth>
+            }
+          />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route
             path="/admin"

@@ -6,6 +6,13 @@ const base = env.apiBaseUrl.replace(/\/$/, "");
 
 type AuthResponse = { data: StoredAuth };
 
+export type UpdateProfileInput = {
+  email?: string;
+  displayName?: string;
+  currentPassword?: string;
+  newPassword?: string;
+};
+
 export const authApi = {
   register(body: { email: string; password: string; displayName?: string }) {
     return http<AuthResponse>(`${base}/api/auth/register`, {
@@ -25,5 +32,13 @@ export const authApi = {
 
   me() {
     return http<{ data: AuthUser }>(`${base}/api/auth/me`);
+  },
+
+  updateProfile(body: UpdateProfileInput) {
+    return http<AuthResponse>(`${base}/api/auth/me`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
   },
 };

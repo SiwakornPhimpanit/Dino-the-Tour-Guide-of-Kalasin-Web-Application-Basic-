@@ -1,4 +1,5 @@
 export const USER_AUTH_KEY = "karasin_user_auth";
+export const AUTH_CHANGED_EVENT = "karasin-auth-changed";
 
 /** @deprecated ใช้ JWT แทน — ลบออกจาก sessionStorage อัตโนมัติ */
 export const ADMIN_AUTH_KEY = "karasin_admin_auth";
@@ -27,6 +28,10 @@ function readStored(): StoredAuth | null {
   }
 }
 
+function notifyAuthChanged() {
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+}
+
 /** ล้าง session แอดมินแบบเก่า (ก่อนมี JWT) */
 export function migrateLegacyAdminSession(): void {
   if (sessionStorage.getItem(ADMIN_AUTH_KEY) === "1") {
@@ -42,11 +47,19 @@ export function getStoredAuth(): StoredAuth | null {
 export function setStoredAuth(auth: StoredAuth): void {
   localStorage.setItem(USER_AUTH_KEY, JSON.stringify(auth));
   sessionStorage.removeItem(ADMIN_AUTH_KEY);
+  notifyAuthChanged();
+}
+
+export function updateStoredUser(user: AuthUser): void {
+  const auth = getStoredAuth();
+  if (!auth) return;
+  setStoredAuth({ ...auth, user });
 }
 
 export function clearUserAuth(): void {
   localStorage.removeItem(USER_AUTH_KEY);
   sessionStorage.removeItem(ADMIN_AUTH_KEY);
+  notifyAuthChanged();
 }
 
 export function getAuthToken(): string | null {
@@ -64,4 +77,8 @@ export function isAdminSession(): boolean {
 
 export function clearAdminSession(): void {
   clearUserAuth();
+}
+
+export function userDisplayLabel(user: AuthUser): string {
+  return user.displayName?.trim() || user.email.split("@")[0] || user.email;
 }

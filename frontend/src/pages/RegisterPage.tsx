@@ -27,7 +27,7 @@ export function RegisterPage() {
     setBusy(true);
     try {
       const res = await authApi.register({
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
         displayName: displayName.trim() || undefined,
       });
@@ -52,13 +52,14 @@ export function RegisterPage() {
   return (
     <section className="authPage">
       <div className="authCard">
-        <h1 className="authCardTitle">สมัครสมาชิก</h1>
-        <p className="muted authCardLead">สมัครเพื่อใช้ผู้ช่วย AI และเก็บประวัติการแชท</p>
+        <div style={{display : 'flex' , justifyContent : 'center' , marginTop : '20px'}}>
+          <h1 className="authCardTitle">สมัครสมาชิกสำหรับผู้ใช้งาน</h1>
+        </div>
         <form className="authForm" onSubmit={onSubmit}>
           {error ? <div className="authError">{error}</div> : null}
           <label className="authField">
-            <span className="authFieldIcon" aria-hidden>
-              #
+            <span className="authFieldIcon" aria-hidden style={{marginTop : '20px'}}>
+              ชื่อผู้ใช้งาน
             </span>
             <input
               type="text"
@@ -69,8 +70,8 @@ export function RegisterPage() {
             />
           </label>
           <label className="authField">
-            <span className="authFieldIcon" aria-hidden>
-              @
+            <span className="authFieldIcon" aria-hidden style={{marginTop : '20px'}}>
+              อีเมลผู้ใช้งาน
             </span>
             <input
               type="email"
@@ -82,8 +83,8 @@ export function RegisterPage() {
             />
           </label>
           <label className="authField">
-            <span className="authFieldIcon" aria-hidden>
-              *
+            <span className="authFieldIcon" aria-hidden style={{marginTop : '20px'}}>
+              รหัสผ่านผู้ใช้งาน
             </span>
             <input
               type="password"
@@ -95,8 +96,8 @@ export function RegisterPage() {
             />
           </label>
           <label className="authField">
-            <span className="authFieldIcon" aria-hidden>
-              *
+            <span className="authFieldIcon" aria-hidden style={{marginTop : '20px'}}>
+              ยืนยันรหัสผ่านผู้ใช้งาน
             </span>
             <input
               type="password"
@@ -107,9 +108,12 @@ export function RegisterPage() {
               required
             />
           </label>
-          <button className="button buttonPrimary authSubmit" type="submit" disabled={busy}>
-            {busy ? "กำลังสมัคร..." : "สมัครสมาชิก"}
-          </button>
+          <div style={{display : 'flex' , justifyContent : 'center' , marginTop : '20px'}}>
+            <button className="button buttonPrimary authSubmit" type="submit" disabled={busy}>
+              {busy ? "กำลังสมัคร..." : "สมัครสมาชิก"}
+            </button>
+          </div>
+          
         </form>
         <p className="authCardFooter">
           มีบัญชีแล้ว? <Link to="/login">เข้าสู่ระบบ</Link>

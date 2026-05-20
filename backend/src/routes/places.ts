@@ -55,6 +55,36 @@ const placeInsertColumns = `
   activities, suitable_for, highlights, faq,
   is_must_visit, is_recommended_first_trip, estimated_visit_hours`;
 
+const placesListFromWhere = `
+       from tourist_places tp
+       left join categories c on c.id = tp.category_id
+       where tp.is_active = true
+         and ($1::int is null or tp.category_id = $1)
+         and (
+           $2::text is null
+           or tp.name ilike '%' || $2 || '%'
+           or tp.description ilike '%' || $2 || '%'
+           or coalesce(c.name, '') ilike '%' || $2 || '%'
+           or coalesce(tp.district, '') ilike '%' || $2 || '%'
+         )`;
+
+const placesListOrderBy = `
+       order by tp.is_recommended_first_trip desc, tp.is_must_visit desc, tp.created_at desc`;
+
+function parsePaginationQuery(req: { query: Record<string, unknown> }) {
+  const hasPage = req.query.page !== undefined && req.query.page !== "";
+  const hasLimit = req.query.limit !== undefined && req.query.limit !== "";
+  if (!hasPage && !hasLimit) return null;
+
+  const pageRaw = req.query.page;
+  const limitRaw = req.query.limit;
+  const page = Number.parseInt(String(pageRaw ?? "1"), 10);
+  const limit = Number.parseInt(String(limitRaw ?? "10"), 10);
+  if (!Number.isFinite(page) || page < 1) return { error: "INVALID_PAGE" as const };
+  if (!Number.isFinite(limit) || limit < 1 || limit > 100) return { error: "INVALID_LIMIT" as const };
+  return { page, limit };
+}
+
 placesRouter.get("/", async (req, res, next) => {
   try {
     const raw = req.query.category_id;
@@ -70,6 +100,48 @@ placesRouter.get("/", async (req, res, next) => {
     const search =
       typeof searchRaw === "string" && searchRaw.trim().length > 0 ? searchRaw.trim() : null;
 
+    const pagination = parsePaginationQuery(req);
+    if (pagination && "error" in pagination) {
+      return res.status(400).json({ error: pagination.error });
+    }
+
+    const listParams = [categoryId, search];
+
+    if (pagination) {
+      const { page, limit } = pagination;
+      const offset = (page - 1) * limit;
+
+      const countResult = await pool.query(
+        `select count(*)::int as total ${placesListFromWhere}`,
+        listParams
+      );
+      const total = countResult.rows[0]?.total ?? 0;
+      const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+
+      const result = await pool.query(
+        `select
+           ${placeRowSelect},
+           coalesce(
+             (select pi.image_url from place_images pi
+              where pi.place_id = tp.id and pi.is_cover = true
+              limit 1),
+             (select pi.image_url from place_images pi
+              where pi.place_id = tp.id
+              order by pi.id asc
+              limit 1)
+           ) as "coverImageUrl"
+         ${placesListFromWhere}
+         ${placesListOrderBy}
+         limit $3 offset $4`,
+        [...listParams, limit, offset]
+      );
+
+      return res.json({
+        data: result.rows,
+        meta: { page, limit, total, totalPages },
+      });
+    }
+
     const result = await pool.query(
       `select
          ${placeRowSelect},
@@ -82,19 +154,9 @@ placesRouter.get("/", async (req, res, next) => {
             order by pi.id asc
             limit 1)
          ) as "coverImageUrl"
-       from tourist_places tp
-       left join categories c on c.id = tp.category_id
-       where tp.is_active = true
-         and ($1::int is null or tp.category_id = $1)
-         and (
-           $2::text is null
-           or tp.name ilike '%' || $2 || '%'
-           or tp.description ilike '%' || $2 || '%'
-           or coalesce(c.name, '') ilike '%' || $2 || '%'
-           or coalesce(tp.district, '') ilike '%' || $2 || '%'
-         )
-       order by tp.is_recommended_first_trip desc, tp.is_must_visit desc, tp.created_at desc`,
-      [categoryId, search]
+       ${placesListFromWhere}
+       ${placesListOrderBy}`,
+      listParams
     );
     res.json({ data: result.rows });
   } catch (err) {

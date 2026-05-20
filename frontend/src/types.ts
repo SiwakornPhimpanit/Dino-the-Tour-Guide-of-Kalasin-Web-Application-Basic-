@@ -20,6 +20,13 @@ export type PlaceTravelFields = {
   estimatedVisitHours: number | null;
 };
 
+export type PlacesListMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
 export type PlaceListItem = {
   id: number;
   name: string;

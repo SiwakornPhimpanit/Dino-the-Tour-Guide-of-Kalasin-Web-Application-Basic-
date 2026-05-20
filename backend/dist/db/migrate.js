@@ -15,6 +15,8 @@ const sqlFiles = [
     "008_seed_categories_extended.sql",
     "009_seed_travel_knowledge.sql",
     "010_users_and_chat.sql",
+    "012_drop_users_avatar_url.sql",
+    "015_drop_publicity.sql",
 ];
 async function run() {
     for (const file of sqlFiles) {
