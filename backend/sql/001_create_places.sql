@@ -21,9 +21,6 @@ CREATE TABLE IF NOT EXISTS tourist_places (
 
   district VARCHAR(100),
 
-  latitude DECIMAL(10,8),
-  longitude DECIMAL(11,8),
-
   google_maps_url TEXT,
 
   is_active BOOLEAN DEFAULT true,

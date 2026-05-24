@@ -5,6 +5,7 @@ import { authRouter } from "./routes/auth.js";
 import { categoriesRouter } from "./routes/categories.js";
 import { chatRouter } from "./routes/chat.js";
 import { chatSessionsRouter } from "./routes/chatSessions.js";
+import { knowledgeRouter } from "./routes/knowledge.js";
 import { placesRouter } from "./routes/places.js";
 dotenv.config();
 export function createApp() {
@@ -30,6 +31,7 @@ export function createApp() {
     app.use("/api/auth", authRouter);
     app.use("/api/categories", categoriesRouter);
     app.use("/api/places", placesRouter);
+    app.use("/api/knowledge", knowledgeRouter);
     app.use("/api/chat", chatRouter);
     app.use("/api/chat", chatSessionsRouter);
     app.use((err, _req, res, _next) => {

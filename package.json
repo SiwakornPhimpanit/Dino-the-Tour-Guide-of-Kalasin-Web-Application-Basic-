@@ -8,8 +8,8 @@
     "backend"
   ],
   "overrides": {
-  "vite": "6.3.5",
-  "@vitejs/plugin-react": "4.3.4"
+    "vite": "6.3.5",
+    "@vitejs/plugin-react": "4.3.4"
   },
   "main": "index.js",
   "scripts": {
@@ -17,7 +17,13 @@
     "dev:frontend": "npm run dev --workspace frontend",
     "dev": "node scripts/dev.mjs",
     "build": "npm run build --workspace backend && npm run build --workspace frontend",
-    "build:frontend": "npm run build --workspace frontend"
+    "build:frontend": "npm run build --workspace frontend",
+    "thesis:screenshots": "node scripts/capture-thesis-screenshots.mjs",
+    "thesis:docx": "python scripts/md-to-docx.py",
+    "thesis:eval": "python scripts/generate-evaluation-tables.py",
+    "thesis:manual-annotate": "python scripts/annotate-manual-screenshots.py",
+    "thesis:manual-docx": "python scripts/md-to-docx.py docs/THESIS_APPENDIX_MANUAL.md docs/THESIS_APPENDIX_MANUAL.docx",
+    "thesis:manual": "npm run thesis:manual-annotate && npm run thesis:manual-docx"
   },
   "repository": {
     "type": "git",
@@ -31,6 +37,7 @@
   },
   "homepage": "https://github.com/luck-nara/karasin#readme",
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "playwright": "^1.60.0"
   }
 }

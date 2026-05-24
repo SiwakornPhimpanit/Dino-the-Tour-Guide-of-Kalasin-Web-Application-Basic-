@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { placesApi } from "../api/places";
 import { PlaceCard } from "../components/PlaceCard";
-import { HERO_KALASIN_CULTURE_IMAGE, HERO_KALASIN_DINO_SCENE_IMAGE } from "../lib/media";
+import { HERO_BANNER_HEIGHT, HERO_BANNER_IMAGE, HERO_BANNER_WIDTH } from "../lib/media";
 import type { PlaceListItem } from "../types";
 
 export function TravelGuidePage() {
@@ -26,29 +26,14 @@ export function TravelGuidePage() {
 
   return (
     <div className="homePage">
-      <section className="heroCollage" aria-label="แนะนำจังหวัดกาฬสินธุ์">
-        <div
-          className="heroCollageSide heroCollageSideLeft"
-          style={{ ["--hero-side-img" as string]: `url("${HERO_KALASIN_CULTURE_IMAGE}")` }}
-          role="img"
-          aria-label="วัฒนธรรมผ้าไหมแพรวา จังหวัดกาฬสินธุ์"
-        />
-        <div className="heroCollageCenter">
-          <p className="heroCollageKicker">แหล่งท่องเที่ยว</p>
-          <h1 className="heroCollageTitle">กาฬสินธุ์</h1>
-          <p className="heroCollageTagline">พาไปรู้จักสถานที่สวยงามทั่วจังหวัด</p>
-          <Link className="heroCollagePill buttonPrimary" to="/places">
-            <span className="heroCollagePillIcon" aria-hidden>
-              📍
-            </span>
-            <span>ดูสถานที่ท่องเที่ยวทั้งหมด</span>
-          </Link>
-        </div>
-        <div
-          className="heroCollageSide heroCollageSideRight"
-          style={{ ["--hero-side-img" as string]: `url("${HERO_KALASIN_DINO_SCENE_IMAGE}")` }}
-          role="img"
-          aria-label="พิพิธภัณฑ์ไดโนเสาร์ภาคอีสาน"
+      <section className="heroBanner" aria-label="เที่ยวกาฬสินธุ์">
+        <img
+          className="heroBannerImg"
+          src={HERO_BANNER_IMAGE}
+          width={HERO_BANNER_WIDTH}
+          height={HERO_BANNER_HEIGHT}
+          decoding="async"
+          alt="เที่ยวกาฬสินธุ์ — ดินแดนแห่งวัฒนธรรม อารยธรรม และธรรมชาติ พระธาตุยาคู บึงบัว และไดโนเสาร์"
         />
       </section>
 

@@ -68,3 +68,43 @@ export type PlaceCreateInput = {
   lineUrl?: string | null;
   images: { url: string; isCover?: boolean }[];
 } & Partial<PlaceTravelFields>;
+
+export type LocalFood = {
+  id: number;
+  name: string;
+  description: string | null;
+  whereToEat: string | null;
+  priceRange: string | null;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type StayZone = {
+  id: number;
+  zoneName: string;
+  summary: string | null;
+  pros: string | null;
+  cons: string | null;
+  suitableFor: string | null;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type TravelGuide = {
+  id: number;
+  topic: string;
+  title: string;
+  content: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type ProvinceInfo = {
+  id: number;
+  summary: string | null;
+  isFamilyFriendly: boolean;
+  familyFriendlyNote: string | null;
+  firstTimeTips: string | null;
+  bestSeason: string | null;
+  updatedAt: string;
+};

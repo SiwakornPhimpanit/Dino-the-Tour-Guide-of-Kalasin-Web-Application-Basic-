@@ -6,6 +6,7 @@ export function AdminLayout() {
     location.pathname === "/admin" || location.pathname.startsWith("/admin/edit/");
   const createActive = location.pathname === "/admin/new";
   const categoriesActive = location.pathname.startsWith("/admin/categories");
+  const knowledgeActive = location.pathname.startsWith("/admin/knowledge");
 
   return (
     <div className="adminLayout">
@@ -20,6 +21,9 @@ export function AdminLayout() {
             </Link>
             <Link className={`adminSubLink${categoriesActive ? " isActive" : ""}`} to="/admin/categories">
               เพิ่มหมวดหมู่
+            </Link>
+            <Link className={`adminSubLink${knowledgeActive ? " isActive" : ""}`} to="/admin/knowledge">
+              ข้อมูล AI
             </Link>
           </nav>
         </div>

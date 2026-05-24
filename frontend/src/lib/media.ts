@@ -1,3 +1,9 @@
+/** แบนเนอร์หน้าแรก — โปรโมทเที่ยวกาฬสินธุ์ (local) */
+export const HERO_BANNER_IMAGE = "/hero-banner.png";
+/** ขนาดไฟล์จริง (ใช้กับ width/height บน img) */
+export const HERO_BANNER_WIDTH = 1024;
+export const HERO_BANNER_HEIGHT = 289;
+
 /** ผ้าไหมแพรวา จ.กาฬสินธุ์ — CC BY-SA 4.0 (TAT / Wikimedia Commons) */
 export const HERO_KALASIN_CULTURE_IMAGE =
   "https://upload.wikimedia.org/wikipedia/commons/8/8a/Kls_att40011012.jpg";

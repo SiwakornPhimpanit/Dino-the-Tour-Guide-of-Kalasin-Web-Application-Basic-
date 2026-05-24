@@ -5,6 +5,7 @@ import { RequireAdmin } from "./components/RequireAdmin";
 import { RequireAuth } from "./components/RequireAuth";
 import { RequireMember } from "./components/RequireMember";
 import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
+import { AdminKnowledgePage } from "./pages/AdminKnowledgePage";
 import { AdminPlaceFormPage } from "./pages/AdminPlaceFormPage";
 import { AdminPlacesPage } from "./pages/AdminPlacesPage";
 import { AssistantChatPage } from "./pages/AssistantChatPage";
@@ -57,6 +58,7 @@ export default function App() {
             <Route index element={<AdminPlacesPage />} />
             <Route path="new" element={<AdminPlaceFormPage mode="create" />} />
             <Route path="categories" element={<AdminCategoriesPage />} />
+            <Route path="knowledge" element={<AdminKnowledgePage />} />
             <Route path="edit/:id" element={<AdminPlaceFormPage mode="edit" />} />
           </Route>
         </Routes>
