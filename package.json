@@ -18,12 +18,9 @@
     "dev": "node scripts/dev.mjs",
     "build": "npm run build --workspace backend && npm run build --workspace frontend",
     "build:frontend": "npm run build --workspace frontend",
-    "thesis:screenshots": "node scripts/capture-thesis-screenshots.mjs",
-    "thesis:docx": "python scripts/md-to-docx.py",
-    "thesis:eval": "python scripts/generate-evaluation-tables.py",
-    "thesis:manual-annotate": "python scripts/annotate-manual-screenshots.py",
-    "thesis:manual-docx": "python scripts/md-to-docx.py docs/THESIS_APPENDIX_MANUAL.md docs/THESIS_APPENDIX_MANUAL.docx",
-    "thesis:manual": "npm run thesis:manual-annotate && npm run thesis:manual-docx"
+    "hero:fetch": "node scripts/fetch-hero-banner.mjs",
+    "hero:collage": "node scripts/fetch-hero-collage.mjs",
+    "thesis:screenshots": "node scripts/capture-thesis-screenshots.mjs"
   },
   "repository": {
     "type": "git",

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { placesApi } from "../api/places";
 import { PlaceCard } from "../components/PlaceCard";
-import { HERO_BANNER_HEIGHT, HERO_BANNER_IMAGE, HERO_BANNER_WIDTH } from "../lib/media";
+import { HERO_COLLAGE } from "../lib/media";
 import type { PlaceListItem } from "../types";
 
 export function TravelGuidePage() {
@@ -26,15 +26,27 @@ export function TravelGuidePage() {
 
   return (
     <div className="homePage">
-      <section className="heroBanner" aria-label="เที่ยวกาฬสินธุ์">
-        <img
-          className="heroBannerImg"
-          src={HERO_BANNER_IMAGE}
-          width={HERO_BANNER_WIDTH}
-          height={HERO_BANNER_HEIGHT}
-          decoding="async"
-          alt="เที่ยวกาฬสินธุ์ — ดินแดนแห่งวัฒนธรรม อารยธรรม และธรรมชาติ พระธาตุยาคู บึงบัว และไดโนเสาร์"
-        />
+      <section className="heroBanner heroBannerCollage" aria-label="เที่ยวกาฬสินธุ์">
+        <div className="heroBannerGrid" role="group" aria-label="ภาพไดโนเสาร์และพิพิธภัณฑ์กาฬสินธุ์">
+          {HERO_COLLAGE.map((tile, index) => (
+            <img
+              key={tile.src}
+              className="heroBannerTile"
+              src={tile.src}
+              alt={tile.alt}
+              decoding={index === 0 ? "async" : "async"}
+              fetchPriority={index === 0 ? "high" : "low"}
+              style={tile.position ? { objectPosition: tile.position } : undefined}
+            />
+          ))}
+        </div>
+        <div className="heroBannerCaption">
+          <p className="heroBannerTag">Dino ไกด์พาเที่ยวเมืองกาฬสินธุ์</p>
+          <h1 className="heroBannerTitle">เที่ยวกาฬสินธุ์ วัด วัฒนธรรม และไดโนเสาร์</h1>
+          <p className="heroBannerSub">
+            พระธาตุยาคู พิพิธภัณฑ์สิรินธร และสถานที่ท่องเที่ยว — ให้ Dino Bot ช่วยวางแผนเที่ยว
+          </p>
+        </div>
       </section>
 
       <section className="section">
