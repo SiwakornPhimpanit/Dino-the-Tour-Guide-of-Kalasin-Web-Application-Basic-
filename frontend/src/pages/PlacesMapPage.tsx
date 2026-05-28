@@ -176,10 +176,6 @@ export function PlacesMapPage() {
     return list.filter((x) => x.pos != null) as { place: PlaceListItem; pos: LatLng }[];
   }, [filteredItems]);
 
-  const missingCoords = useMemo(() => {
-    return (filteredItems ?? []).filter((p) => !p.googleMapsUrl || !parseLatLngFromGoogleMapsUrl(p.googleMapsUrl));
-  }, [filteredItems]);
-
   const selected = useMemo(() => (filteredItems ?? []).find((p) => p.id === selectedId) ?? null, [filteredItems, selectedId]);
   const selectedPos = useMemo(() => {
     if (!selected?.googleMapsUrl) return null;
