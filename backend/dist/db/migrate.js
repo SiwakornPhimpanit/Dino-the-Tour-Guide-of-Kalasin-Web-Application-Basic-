@@ -17,6 +17,7 @@ const sqlFiles = [
     "010_users_and_chat.sql",
     "012_drop_users_avatar_url.sql",
     "015_drop_publicity.sql",
+    "016_drop_places_lat_lng.sql",
 ];
 async function run() {
     for (const file of sqlFiles) {

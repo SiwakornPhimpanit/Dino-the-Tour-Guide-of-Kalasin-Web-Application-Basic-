@@ -6,15 +6,38 @@ import { CategorySidebar } from "../components/CategorySidebar";
 import { PlaceCard } from "../components/PlaceCard";
 import type { Category, PlaceListItem } from "../types";
 
+const KALASIN_DISTRICTS = [
+  "เมืองกาฬสินธุ์",
+  "กมลาไสย",
+  "กุฉินารายณ์",
+  "ฆ้องชัย",
+  "คำม่วง",
+  "ดอนจาน",
+  "ท่าคันโท",
+  "นาคู",
+  "นามน",
+  "หนองกุงศรี",
+  "ห้วยผึ้ง",
+  "ห้วยเม็ก",
+  "เขาวง",
+  "ยางตลาด",
+  "ร่องคำ",
+  "สามชัย",
+  "สมเด็จ",
+  "สหัสขันธ์",
+];
+
 export function PlacesListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryIdFromUrl = searchParams.get("category_id");
+  const districtFromUrl = searchParams.get("district") ?? "";
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<PlaceListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [debouncedSearch, setDebouncedSearch] = useState(() => (searchParams.get("search") ?? "").trim());
+  const [district, setDistrict] = useState(() => districtFromUrl);
 
   const selectedId = categoryIdFromUrl;
 
@@ -39,11 +62,14 @@ export function PlacesListPage() {
   }, [search]);
 
   useEffect(() => {
+    setDistrict(districtFromUrl);
+  }, [districtFromUrl]);
+
+  useEffect(() => {
     let alive = true;
-    setError(null);
     (async () => {
       try {
-        const { data } = await placesApi.list(selectedId, debouncedSearch || null);
+        const { data } = await placesApi.list(selectedId, debouncedSearch || null, district || null);
         if (alive) setItems(data);
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
@@ -52,15 +78,21 @@ export function PlacesListPage() {
     return () => {
       alive = false;
     };
-  }, [selectedId, debouncedSearch]);
+  }, [selectedId, debouncedSearch, district]);
+
+  function updateQuery(next: { categoryId?: string | null; search?: string; district?: string }) {
+    const params = new URLSearchParams();
+    const cat = next.categoryId ?? selectedId ?? null;
+    if (cat) params.set("category_id", cat);
+    const q = (next.search ?? debouncedSearch ?? "").trim();
+    if (q) params.set("search", q);
+    const d = (next.district ?? district ?? "").trim();
+    if (d) params.set("district", d);
+    setSearchParams(params);
+  }
 
   function onSelectCategory(id: string | null) {
-    setError(null);
-    if (id === null) {
-      setSearchParams({});
-    } else {
-      setSearchParams({ category_id: id });
-    }
+    updateQuery({ categoryId: id });
   }
 
   return (
@@ -74,6 +106,25 @@ export function PlacesListPage() {
               {items ? `${items.length} รายการ` : "กำลังโหลด..."}
             </div>
           </div>
+          <label className="field listPanelSearch">
+            <span>อำเภอ</span>
+            <select
+              value={district}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDistrict(v);
+                updateQuery({ district: v });
+              }}
+              aria-label="เลือกอำเภอ"
+            >
+              <option value="">ทั้งหมด</option>
+              {KALASIN_DISTRICTS.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="field listPanelSearch">
             <span>ค้นหาสถานที่</span>
             <input

@@ -17,11 +17,13 @@ export const placesApi = {
   async list(
     categoryId?: string | null,
     search?: string | null,
+    district?: string | null,
     options?: { page?: number; limit?: number }
   ): Promise<PlacesListResult> {
     const qs = buildPlacesListQuery({
       categoryId: categoryId ?? null,
       search: search ?? null,
+      district: district ?? null,
       page: options?.page,
       limit: options?.limit,
     });

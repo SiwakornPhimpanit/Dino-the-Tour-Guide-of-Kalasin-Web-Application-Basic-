@@ -32,7 +32,7 @@ export function AdminPlacesPage() {
     setLoading(true);
     (async () => {
       try {
-        const { data, meta: listMeta } = await placesApi.list(null, debouncedSearch || null, {
+        const { data, meta: listMeta } = await placesApi.list(null, debouncedSearch || null, null, {
           page,
           limit: PAGE_SIZE,
         });

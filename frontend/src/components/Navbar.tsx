@@ -26,6 +26,9 @@ export function Navbar() {
         <Link className={navLinkClass("/")} to="/">
           หน้าแรก
         </Link>
+        <Link className={navLinkClass("/map")} to="/map">
+          แผนที่
+        </Link>
         {isLoggedIn() && auth?.user.role === "member" && !isAdminArea ? (
           <Link className={navLinkClass("/assistant")} to="/assistant">
             Dino bot

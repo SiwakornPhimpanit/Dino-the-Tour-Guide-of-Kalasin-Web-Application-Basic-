@@ -17,6 +17,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { UserLoginPage } from "./pages/UserLoginPage";
 import { PlaceDetailPage } from "./pages/PlaceDetailPage";
 import { PlacesListPage } from "./pages/PlacesListPage";
+import { PlacesMapPage } from "./pages/PlacesMapPage";
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<TravelGuidePage />} />
           <Route path="/places" element={<PlacesListPage />} />
+          <Route path="/map" element={<PlacesMapPage />} />
           <Route path="/places/:id" element={<PlaceDetailPage />} />
           <Route
             path="/assistant"

@@ -60,6 +60,7 @@ const placesListFromWhere = `
        left join categories c on c.id = tp.category_id
        where tp.is_active = true
          and ($1::int is null or tp.category_id = $1)
+         and ($3::text is null or coalesce(tp.district, '') ilike $3 || '%')
          and (
            $2::text is null
            or tp.name ilike '%' || $2 || '%'
@@ -100,12 +101,17 @@ placesRouter.get("/", async (req, res, next) => {
     const search =
       typeof searchRaw === "string" && searchRaw.trim().length > 0 ? searchRaw.trim() : null;
 
+    const districtRaw = req.query.district;
+    const district =
+      typeof districtRaw === "string" && districtRaw.trim().length > 0 ? districtRaw.trim() : null;
+
     const pagination = parsePaginationQuery(req);
     if (pagination && "error" in pagination) {
       return res.status(400).json({ error: pagination.error });
     }
 
-    const listParams = [categoryId, search];
+    // Params: $1=categoryId, $2=search, $3=district
+    const listParams = [categoryId, search, district];
 
     if (pagination) {
       const { page, limit } = pagination;
@@ -132,7 +138,7 @@ placesRouter.get("/", async (req, res, next) => {
            ) as "coverImageUrl"
          ${placesListFromWhere}
          ${placesListOrderBy}
-         limit $3 offset $4`,
+         limit $4 offset $5`,
         [...listParams, limit, offset]
       );
 
