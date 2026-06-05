@@ -266,15 +266,85 @@ a {
   box-shadow: var(--shadow);
 }
 
+.mapPopup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  min-width: 168px;
+  max-width: 180px;
+}
+
+.mapPopupImg {
+  display: block;
+  width: 152px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
 .mapPopupTitle {
+  width: 100%;
   font-weight: 900;
-  margin-bottom: 4px;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mapPopupMeta {
-  font-size: 14px;
-  color: rgba(27, 19, 64, 0.75);
-  margin-bottom: 10px;
+  width: 100%;
+  font-size: 12px;
+  color: rgba(27, 19, 64, 0.72);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mapPopupBtn {
+  width: 100%;
+}
+
+.leaflet-tooltip.mapMarkerTooltip {
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 10px 28px rgba(168, 85, 255, 0.2);
+  color: var(--text);
+  font-family: var(--font-sans);
+  line-height: 1.4;
+  max-width: 180px;
+}
+
+.mapTooltip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  width: 100%;
+  max-width: 152px;
+}
+
+.mapTooltipImg {
+  display: block;
+  width: 152px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.mapTooltipTitle {
+  width: 100%;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Home hero banner */

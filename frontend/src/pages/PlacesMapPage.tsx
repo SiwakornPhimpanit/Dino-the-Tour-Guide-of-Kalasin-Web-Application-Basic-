@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
 import * as L from "leaflet";
 import { categoriesApi } from "../api/categories";
 import { placesApi } from "../api/places";
 import type { Category, PlaceListItem } from "../types";
 
 type LatLng = { lat: number; lng: number };
+
+const PLACE_FALLBACK_IMG =
+  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80";
 
 const KALASIN_DISTRICTS = [
   "เมืองกาฬสินธุ์",
@@ -129,6 +132,7 @@ export function PlacesMapPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const markerRefs = useRef<Map<number, L.Marker>>(new Map());
+  const sidebarItemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const [search, setSearch] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [selectedDistrict, setSelectedDistrict] = useState<string>("");
@@ -181,6 +185,12 @@ export function PlacesMapPage() {
     if (!selected?.googleMapsUrl) return null;
     return parseLatLngFromGoogleMapsUrl(selected.googleMapsUrl);
   }, [selected]);
+
+  useEffect(() => {
+    if (selectedId == null) return;
+    const el = sidebarItemRefs.current.get(selectedId);
+    el?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [selectedId]);
 
   return (
     <div className="mapLayout">
@@ -260,6 +270,10 @@ export function PlacesMapPage() {
                     key={p.id}
                     type="button"
                     className={`mapSidebarItem${isActive ? " isActive" : ""}`}
+                    ref={(el) => {
+                      if (!el) sidebarItemRefs.current.delete(p.id);
+                      else sidebarItemRefs.current.set(p.id, el);
+                    }}
                     onClick={() => {
                       setSelectedId(p.id);
                       if (!hasPos) return;
@@ -287,7 +301,7 @@ export function PlacesMapPage() {
         <div className="panelHeader mapMainHeader">
           <div className="panelTitle">Map</div>
           <div className="muted panelSubtitle">
-            กดหมุดเพื่อดูชื่อ แล้วไปหน้ารายละเอียด
+            ชี้เมาส์ที่หมุดเพื่อดูรายละเอียด คลิกเพื่อเลือกและไปหน้ารายละเอียด
             {selected ? ` • เลือก: ${selected.name}` : null}
           </div>
         </div>
@@ -318,12 +332,38 @@ export function PlacesMapPage() {
                   click: () => setSelectedId(place.id),
                 }}
               >
+                <Tooltip
+                  direction="top"
+                  offset={[0, -38]}
+                  opacity={1}
+                  className="mapMarkerTooltip"
+                >
+                  <div className="mapTooltip">
+                    <img
+                      className="mapTooltipImg"
+                      src={place.coverImageUrl ?? PLACE_FALLBACK_IMG}
+                      alt=""
+                      loading="lazy"
+                    />
+                    <div className="mapTooltipTitle" title={place.name}>
+                      {place.name}
+                    </div>
+                  </div>
+                </Tooltip>
                 <Popup>
                   <div className="mapPopup">
-                    <div className="mapPopupTitle">{place.name}</div>
+                    <img
+                      className="mapPopupImg"
+                      src={place.coverImageUrl ?? PLACE_FALLBACK_IMG}
+                      alt=""
+                      loading="lazy"
+                    />
+                    <div className="mapPopupTitle" title={place.name}>
+                      {place.name}
+                    </div>
                     <div className="mapPopupMeta">
-                      {place.categoryName ? place.categoryName : "ไม่ระบุหมวด"}
-                      {place.district ? ` • ${place.district}` : null}
+                      {place.categoryName ?? "ไม่ระบุหมวด"}
+                      {place.district ? ` • ${place.district}` : ""}
                     </div>
                     <button
                       type="button"
