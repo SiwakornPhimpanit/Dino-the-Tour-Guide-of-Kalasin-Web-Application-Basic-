@@ -291,7 +291,9 @@ export function AssistantChatPage() {
                   disabled={busy || historyLoading}
                   onClick={() => void openSession(s.id)}
                 >
-                  <span className="assistantSidebarItemTitle">{s.title}</span>
+                  <span className="assistantSidebarItemTitle" title={s.title}>
+                    {s.title}
+                  </span>
                   <span className="assistantSidebarItemDate">{formatSessionDate(s.updatedAt)}</span>
                 </button>
                 <button
