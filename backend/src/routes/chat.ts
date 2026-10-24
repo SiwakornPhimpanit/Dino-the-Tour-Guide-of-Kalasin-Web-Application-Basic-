@@ -1,7 +1,11 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { buildSystemPrompt, loadTravelKnowledgeContext } from "../lib/chatContext.js";
+import {
+  buildSystemPrompt,
+  loadTravelKnowledgeContext,
+  placeNamesAlreadyRecommended,
+} from "../lib/chatContext.js";
 import {
   insertChatMessage,
   resolveSessionForChat,
@@ -98,7 +102,11 @@ chatRouter.post("/stream", optionalAuth, async (req: AuthedRequest, res: Respons
   let systemPrompt: string;
   try {
     const ctx = await loadTravelKnowledgeContext();
-    systemPrompt = buildSystemPrompt(ctx);
+    const alreadyRecommended = placeNamesAlreadyRecommended(
+      parsed.data.messages,
+      ctx.places.map((place) => place.name)
+    );
+    systemPrompt = buildSystemPrompt(ctx, alreadyRecommended);
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "KNOWLEDGE_LOAD_FAILED" });
@@ -119,7 +127,7 @@ chatRouter.post("/stream", optionalAuth, async (req: AuthedRequest, res: Respons
         model,
         stream: true,
         temperature: 0.45,
-        max_tokens: 1536,
+        max_tokens: 8192,
         messages: [{ role: "system" as const, content: systemPrompt }, ...userMessages],
       }),
     });

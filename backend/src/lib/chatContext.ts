@@ -86,7 +86,39 @@ function compactPlace(p: PlaceContextRow) {
   return out;
 }
 
-export function buildSystemPrompt(ctx: TravelKnowledgeContext): string {
+function normalizePlaceLabel(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+/** Place names already written in earlier assistant replies of this chat. Longer names win over fragments. */
+export function placeNamesAlreadyRecommended(
+  messages: { role: string; content: string }[],
+  placeNames: string[]
+): string[] {
+  let remaining = normalizePlaceLabel(
+    messages
+      .filter((message) => message.role === "assistant")
+      .map((message) => message.content)
+      .join("\n")
+  );
+  if (!remaining) return [];
+
+  const names = [...new Set(placeNames.map(normalizePlaceLabel).filter((name) => name.length >= 2))].sort(
+    (a, b) => b.length - a.length
+  );
+  const found: string[] = [];
+  for (const name of names) {
+    if (!remaining.includes(name)) continue;
+    found.push(name);
+    remaining = remaining.split(name).join(" ");
+  }
+  return found;
+}
+
+export function buildSystemPrompt(
+  ctx: TravelKnowledgeContext,
+  alreadyRecommended: string[] = []
+): string {
   const places = ctx.places.map(compactPlace);
   const itineraries = ctx.itineraries.map((it) => ({
     title: it.title,
@@ -105,8 +137,14 @@ export function buildSystemPrompt(ctx: TravelKnowledgeContext): string {
     "- ใช้เฉพาะข้อมูลจาก JSON ด้านล่าง (places, itineraries, localFoods, souvenirs, stayZones, travelGuides, provinceInfo) ห้ามสร้างชื่อสถานที่ ราคา หรือลิงก์ที่ไม่มีในข้อมูล",
     "- คำถามเรื่องแผนเที่ยว 1 วัน / 2 วัน 1 คืน / มาครั้งแรก → ใช้ itineraries และ places ที่เกี่ยวข้อง",
     "- คำถามอาหารพื้นเมือง → localFoods | ของฝาก/ผ้าไหม → souvenirs | พักโซนไหน → stayZones",
+    "- ถ้าผู้ใช้หาเมนูหรือร้านอาหาร เช่น ลาบ หรือ ร้านลาบ ให้แนะนำเฉพาะร้านใน places ที่ recommendedMenus มีเมนูนั้น พร้อมชื่อเมนู ห้ามสร้างร้านหรือเมนูที่ไม่มีในข้อมูล",
     "- คำถามเดินทางจากกรุงเทพ / งบประมาณ → travelGuides",
     "- คำถามครอบครัว/เด็ก → provinceInfo และ suitableFor ของ places",
+    "- ในแชทเดียวกัน ห้ามแนะนำสถานที่ที่เคยตอบไปแล้วซ้ำ เลือกสถานที่อื่นใน places ที่ยังไม่ถูกกล่าวถึง",
+    "- ยกเว้นเมื่อผู้ใช้ถามถึงสถานที่นั้นโดยตรง หรือขอรายละเอียดเพิ่มของที่เพิ่งแนะนำ จึงตอบที่นั้นได้",
+    "- ถ้าไม่มีสถานที่ใหม่ที่ตรงคำถาม ให้บอกว่าแนะนำครบตามข้อมูลแล้ว อย่าเอารายการเดิมมาตอบอีกรอบ",
+    "- เมื่อผู้ใช้ถามหาสถานที่ในหมวดหรือประเภทหนึ่ง ให้แนะนำครบทุกแห่งใน places ที่ตรงเงื่อนไข ห้ามเลือกมาแค่ 3 แห่ง",
+    "- แต่ละแห่งย่อรายละเอียดเหลือ 1 ประโยค แต่ต้องใส่ครบทุกชื่อที่ตรง เรียงตามลำดับใน places",
     "- เมื่อแนะนำสถานที่จาก places ให้ใช้รูปแบบ:",
     "  - ชื่อสถานที่",
     "  หมวด: (category)",
@@ -119,6 +157,12 @@ export function buildSystemPrompt(ctx: TravelKnowledgeContext): string {
     "- ห้ามใช้ Markdown ลิงก์ [ข้อความ](url)",
     "- ถ้าไม่มีข้อมูลตอบคำถาม ให้ตอบว่า \"ขออภัย ยังไม่มีข้อมูลในระบบ\" ตรงๆ",
     "- ไม่ต้องคัดลอกคำถามผู้ใช้",
+    ...(alreadyRecommended.length > 0
+      ? [
+          "",
+          `สถานที่ที่แนะนำไปแล้วในแชทนี้ ห้ามนำมาแนะนำซ้ำ: ${alreadyRecommended.join(" | ")}`,
+        ]
+      : []),
     "",
     `places = ${JSON.stringify(places)}`,
     `itineraries = ${JSON.stringify(itineraries)}`,

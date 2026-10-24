@@ -99,6 +99,14 @@ const placeInsertColumns = `
   activities, suitable_for, highlights, faq,
   is_must_visit, is_recommended_first_trip, estimated_visit_hours, display_order`;
 
+/** "ร้านลาบ" should also match a recommended menu named "ลาบ". */
+function menuSearchNeedle(search: string | null): string | null {
+  if (!search) return null;
+  const stripped = search.replace(/^ร้าน\s*/u, "").trim();
+  if (!stripped || stripped === search) return null;
+  return stripped;
+}
+
 const placesListFromWhere = `
        from tourist_places tp
        left join categories c on c.id = tp.category_id
@@ -111,7 +119,29 @@ const placesListFromWhere = `
            or tp.description ilike '%' || $2 || '%'
            or coalesce(c.name, '') ilike '%' || $2 || '%'
            or coalesce(tp.district, '') ilike '%' || $2 || '%'
+           or exists (
+             select 1
+             from place_recommended_menus prm
+             where prm.place_id = tp.id
+               and (
+                 prm.name ilike '%' || $2 || '%'
+                 or ($4::text is not null and prm.name ilike '%' || $4 || '%')
+               )
+           )
          )`;
+
+const recommendedMenusSelect = `
+         coalesce(
+           (
+             select json_agg(
+               json_build_object('name', prm.name, 'price', prm.price)
+               order by prm.sort_order asc, prm.id asc
+             )
+             from place_recommended_menus prm
+             where prm.place_id = tp.id
+           ),
+           '[]'::json
+         ) as "recommendedMenus"`;
 
 const placesListOrderBy = `
        order by tp.display_order asc, tp.id asc`;
@@ -154,8 +184,8 @@ placesRouter.get("/", async (req, res, next) => {
       return res.status(400).json({ error: pagination.error });
     }
 
-    // Params: $1=categoryId, $2=search, $3=district
-    const listParams = [categoryId, search, district];
+    // Params: $1=categoryId, $2=search, $3=district, $4=menu needle ("ร้านลาบ" -> "ลาบ")
+    const listParams = [categoryId, search, district, menuSearchNeedle(search)];
 
     if (pagination) {
       const { page, limit } = pagination;
@@ -179,10 +209,11 @@ placesRouter.get("/", async (req, res, next) => {
               where pi.place_id = tp.id
               order by pi.id asc
               limit 1)
-           ) as "coverImageUrl"
+           ) as "coverImageUrl",
+           ${recommendedMenusSelect}
          ${placesListFromWhere}
          ${placesListOrderBy}
-         limit $4 offset $5`,
+         limit $5 offset $6`,
         [...listParams, limit, offset]
       );
 
@@ -203,7 +234,8 @@ placesRouter.get("/", async (req, res, next) => {
             where pi.place_id = tp.id
             order by pi.id asc
             limit 1)
-         ) as "coverImageUrl"
+         ) as "coverImageUrl",
+         ${recommendedMenusSelect}
        ${placesListFromWhere}
        ${placesListOrderBy}`,
       listParams

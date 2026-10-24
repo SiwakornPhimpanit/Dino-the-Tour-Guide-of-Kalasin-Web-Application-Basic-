@@ -19,6 +19,11 @@ const EXCERPT_LEN = 160;
 
 export function PlaceCard({ place }: Props) {
   const img = place.coverImageUrl ?? FALLBACK_IMG;
+  const menus = place.recommendedMenus ?? [];
+  const menuLabel = menus
+    .slice(0, 3)
+    .map((menu) => menu.name)
+    .join(" · ");
   return (
     <div className="placeCard">
       <Link to={`/places/${place.id}`} className="placeCardMain">
@@ -28,6 +33,9 @@ export function PlaceCard({ place }: Props) {
         </div>
         <div className="placeCardBody">
           <h3 className="placeCardTitle">{place.name}</h3>
+          {menuLabel ? (
+            <p className="placeCardMeta">เมนูแนะนำ: {menuLabel}{menus.length > 3 ? " …" : ""}</p>
+          ) : null}
           <p className="placeCardShort">{excerpt(place.description, EXCERPT_LEN)}</p>
         </div>
       </Link>

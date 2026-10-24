@@ -165,8 +165,11 @@ export function PlacesMapPage() {
         if (!p.district?.trim().startsWith(dist)) return false;
       }
       if (q) {
-        const hay = `${p.name} ${p.description ?? ""} ${p.categoryName ?? ""} ${p.district ?? ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
+        const menuText = (p.recommendedMenus ?? []).map((menu) => menu.name).join(" ");
+        const hay = `${p.name} ${p.description ?? ""} ${p.categoryName ?? ""} ${p.district ?? ""} ${menuText}`.toLowerCase();
+        const dish = q.replace(/^ร้าน\s*/u, "").trim();
+        const matched = hay.includes(q) || (dish.length > 0 && dish !== q && hay.includes(dish));
+        if (!matched) return false;
       }
       return true;
     });
@@ -219,7 +222,7 @@ export function PlacesMapPage() {
                     setSearch(e.target.value);
                     setSelectedId(null);
                   }}
-                  placeholder="ชื่อ/คำอธิบาย"
+                  placeholder="ชื่อสถานที่ หรือเมนูอาหาร"
                   autoComplete="off"
                 />
               </label>
@@ -289,6 +292,12 @@ export function PlacesMapPage() {
                       {p.categoryName ? p.categoryName : "ไม่ระบุหมวด"}
                       {p.district ? ` • ${p.district}` : null}
                     </div>
+                    {p.recommendedMenus?.length ? (
+                      <div className="mapSidebarItemMeta muted">
+                        เมนูแนะนำ: {p.recommendedMenus.slice(0, 3).map((menu) => menu.name).join(" · ")}
+                        {p.recommendedMenus.length > 3 ? " …" : ""}
+                      </div>
+                    ) : null}
                   </button>
                 );
               })}

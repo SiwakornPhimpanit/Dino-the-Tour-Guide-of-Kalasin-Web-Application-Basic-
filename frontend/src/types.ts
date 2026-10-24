@@ -38,6 +38,7 @@ export type PlaceListItem = {
   categoryId: number | null;
   categoryName: string | null;
   coverImageUrl: string | null;
+  recommendedMenus: RecommendedMenu[];
 } & PlaceTravelFields;
 
 export type PlaceImage = {

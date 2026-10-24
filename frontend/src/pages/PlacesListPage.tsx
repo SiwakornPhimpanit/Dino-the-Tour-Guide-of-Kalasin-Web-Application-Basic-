@@ -131,7 +131,7 @@ export function PlacesListPage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="ชื่อสถานที่"
+              placeholder="ชื่อสถานที่ หรือเมนู เช่น ลาบ"
               autoComplete="off"
               aria-label="ค้นหาสถานที่"
             />
