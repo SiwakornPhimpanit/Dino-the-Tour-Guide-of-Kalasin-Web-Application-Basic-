@@ -18,6 +18,7 @@ export type PlaceTravelFields = {
   isMustVisit: boolean;
   isRecommendedFirstTrip: boolean;
   estimatedVisitHours: number | null;
+  displayOrder: number;
 };
 
 export type PlacesListMeta = {
@@ -57,7 +58,13 @@ export type PlaceDetail = {
   createdAt: string;
   updatedAt: string;
   images: PlaceImage[];
+  recommendedMenus: RecommendedMenu[];
 } & PlaceTravelFields;
+
+export type RecommendedMenu = {
+  name: string;
+  price: string | null;
+};
 
 export type PlaceCreateInput = {
   name: string;
@@ -67,6 +74,7 @@ export type PlaceCreateInput = {
   facebookUrl?: string | null;
   lineUrl?: string | null;
   images: { url: string; isCover?: boolean }[];
+  recommendedMenus?: { name: string; price?: string | null }[];
 } & Partial<PlaceTravelFields>;
 
 export type LocalFood = {

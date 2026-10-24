@@ -3209,3 +3209,49 @@ label span,
     justify-content: center;
   }
 }
+
+.detailMenuList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.detailMenuItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(168, 85, 247, 0.06);
+}
+
+.detailMenuPrice {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.menuDraftList {
+  display: grid;
+  gap: 12px;
+}
+
+.menuDraftRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.menuDraftRemove {
+  padding: 12px 14px;
+}
+
+@media (max-width: 720px) {
+  .menuDraftRow {
+    grid-template-columns: 1fr;
+  }
+}

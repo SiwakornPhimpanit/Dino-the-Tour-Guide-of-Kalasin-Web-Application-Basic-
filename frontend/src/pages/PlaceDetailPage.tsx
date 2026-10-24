@@ -147,6 +147,20 @@ export function PlaceDetailPage() {
                 <p className="detailText">{place.description}</p>
               </section>
 
+              {place.recommendedMenus.length > 0 ? (
+                <section className="detailSection">
+                  <h2 className="detailSectionTitle">เมนูแนะนำ</h2>
+                  <ul className="detailMenuList">
+                    {place.recommendedMenus.map((menu, index) => (
+                      <li key={`${index}-${menu.name}`} className="detailMenuItem">
+                        <span>{menu.name}</span>
+                        {menu.price ? <span className="detailMenuPrice">{menu.price}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
               {place.highlights ? (
                 <section className="detailHighlightBox">
                   <h2 className="detailSectionTitle">ไฮไลต์</h2>

@@ -114,7 +114,7 @@ export function AdminPlacesPage() {
           <div>
             <div className="panelTitle">จัดการสถานที่ท่องเที่ยว</div>
             <div className="muted panelSubtitle">
-              ค้นหาได้จากชื่อ รายละเอียด หรือชื่อหมวดหมู่ · {PAGE_SIZE} รายการต่อหน้า
+              ค้นหาได้จากชื่อ รายละเอียด หรือชื่อหมวดหมู่ · เรียงตามเลข Display น้อยไปมาก · {PAGE_SIZE} รายการต่อหน้า
             </div>
           </div>
         </div>
@@ -147,6 +147,9 @@ export function AdminPlacesPage() {
                 <table className="adminTable">
                   <thead>
                     <tr>
+                      <th scope="col" style={{ textAlign: "center", width: 88 }}>
+                        Display
+                      </th>
                       <th scope="col" style={{ textAlign: "center" }}>
                         รูป
                       </th>
@@ -164,6 +167,9 @@ export function AdminPlacesPage() {
                   <tbody>
                     {items.map((p) => (
                       <tr key={p.id}>
+                        <td style={{ textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+                          {p.displayOrder}
+                        </td>
                         <td style={{ textAlign: "center" }}>
                           <div className="adminThumbCell">
                             {p.coverImageUrl ? (

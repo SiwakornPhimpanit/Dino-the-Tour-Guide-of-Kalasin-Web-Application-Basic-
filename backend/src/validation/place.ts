@@ -21,6 +21,14 @@ const optionalTextField = (max: number) =>
     return t === "" ? null : t;
   }, z.union([z.null(), z.string().max(max)]));
 
+const recommendedMenuSchema = z.object({
+  name: z.preprocess((val: unknown) => {
+    if (typeof val !== "string") return val;
+    return val.trim();
+  }, z.string().min(1).max(255)),
+  price: optionalTextField(100),
+});
+
 const googleMapsUrlField = optionalUrlField("INVALID_MAPS_URL");
 const facebookUrlField = optionalUrlField("INVALID_FACEBOOK_URL");
 const lineUrlField = optionalUrlField("INVALID_LINE_URL");
@@ -37,6 +45,20 @@ const placeExtraFields = {
   faq: optionalTextField(1000),
   isMustVisit: z.boolean().optional().default(false),
   isRecommendedFirstTrip: z.boolean().optional().default(false),
+  displayOrder: z
+    .preprocess((val: unknown) => {
+      if (val === undefined || val === null || val === "") return 0;
+      if (typeof val === "number") return val;
+      if (typeof val === "string") {
+        const t = val.trim();
+        if (t === "") return 0;
+        const n = Number(t);
+        return Number.isFinite(n) ? n : val;
+      }
+      return val;
+    }, z.number().int().min(0).max(9999))
+    .optional()
+    .default(0),
   estimatedVisitHours: z
     .preprocess((val: unknown) => {
       if (val === undefined || val === null || val === "") return null;
@@ -60,6 +82,7 @@ export const placeCreateSchema = z.object({
   facebookUrl: facebookUrlField.nullish(),
   lineUrl: lineUrlField.nullish(),
   images: z.array(imageInputSchema).min(1),
+  recommendedMenus: z.array(recommendedMenuSchema).max(30).optional().default([]),
   ...placeExtraFields,
 });
 

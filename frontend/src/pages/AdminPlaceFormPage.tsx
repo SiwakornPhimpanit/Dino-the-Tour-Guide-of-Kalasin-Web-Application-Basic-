@@ -3,8 +3,18 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { categoriesApi } from "../api/categories";
 import { placesApi } from "../api/places";
 import { FormField } from "../components/FormField";
+import { HttpError } from "../lib/http";
 import { uploadPlaceImage } from "../storage/uploadImage";
 import type { Category } from "../types";
+
+const RESTAURANT_CATEGORY_NAME = "ร้านอาหาร";
+const MIN_RESTAURANT_MENUS = 3;
+
+type MenuDraft = { name: string; price: string };
+
+function emptyMenuDrafts(): MenuDraft[] {
+  return Array.from({ length: MIN_RESTAURANT_MENUS }, () => ({ name: "", price: "" }));
+}
 
 function FormAccordion({
   title,
@@ -72,6 +82,8 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
   const [isMustVisit, setIsMustVisit] = useState(false);
   const [isRecommendedFirstTrip, setIsRecommendedFirstTrip] = useState(false);
   const [estimatedVisitHours, setEstimatedVisitHours] = useState("");
+  const [displayOrder, setDisplayOrder] = useState(0);
+  const [recommendedMenus, setRecommendedMenus] = useState<MenuDraft[]>(emptyMenuDrafts);
 
   useEffect(() => {
     let alive = true;
@@ -116,6 +128,15 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
         setFaq(place.faq ?? "");
         setIsMustVisit(place.isMustVisit ?? false);
         setIsRecommendedFirstTrip(place.isRecommendedFirstTrip ?? false);
+        setDisplayOrder(place.displayOrder ?? 0);
+        const loadedMenus = (place.recommendedMenus ?? []).map((menu) => ({
+          name: menu.name,
+          price: menu.price ?? "",
+        }));
+        while (loadedMenus.length < MIN_RESTAURANT_MENUS) {
+          loadedMenus.push({ name: "", price: "" });
+        }
+        setRecommendedMenus(loadedMenus);
         setEstimatedVisitHours(
           place.estimatedVisitHours != null ? String(place.estimatedVisitHours) : ""
         );
@@ -168,6 +189,8 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
   );
 
   const hasLinks = Boolean(googleMapsUrl.trim() || facebookUrl.trim() || lineUrl.trim());
+  const isRestaurant =
+    categories.find((c) => c.id === categoryId)?.name.trim() === RESTAURANT_CATEGORY_NAME;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -176,6 +199,19 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
     try {
       if (categoryId === "") {
         setError("กรุณาเลือกหมวดหมู่");
+        return;
+      }
+
+      const isRestaurant =
+        categories.find((c) => c.id === categoryId)?.name.trim() === RESTAURANT_CATEGORY_NAME;
+      const menuPayload = recommendedMenus
+        .map((item) => ({
+          name: item.name.trim(),
+          price: item.price.trim() === "" ? null : item.price.trim(),
+        }))
+        .filter((item) => item.name !== "");
+      if (isRestaurant && menuPayload.length < MIN_RESTAURANT_MENUS) {
+        setError("ร้านอาหารต้องมีเมนูแนะนำอย่างน้อย 3 รายการ");
         return;
       }
 
@@ -224,6 +260,8 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
         isMustVisit,
         isRecommendedFirstTrip,
         estimatedVisitHours: hoursNum,
+        displayOrder,
+        recommendedMenus: isRestaurant ? menuPayload : [],
         images,
       };
 
@@ -235,6 +273,13 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
       }
       navigate("/admin", { replace: true });
     } catch (err) {
+      if (err instanceof HttpError) {
+        const body = err.body as { error?: string } | null;
+        if (body?.error === "RESTAURANT_MENUS_REQUIRED") {
+          setError("ร้านอาหารต้องมีเมนูแนะนำอย่างน้อย 3 รายการ");
+          return;
+        }
+      }
       setError(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
     } finally {
       setBusy(false);
@@ -328,6 +373,20 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
                       </select>
                     </FormField>
                   </div>
+                  <FormField
+                    label="ลำดับ Display"
+                    hint="เลขน้อยแสดงก่อน ทั้งหน้าผู้ใช้และหน้าแอดมิน ถ้าเลขเท่ากันจะเรียงตามรหัสสถานที่"
+                  >
+                    <input
+                      type="number"
+                      min={0}
+                      max={9999}
+                      step={1}
+                      value={displayOrder}
+                      onChange={(e) => setDisplayOrder(Number(e.target.value) || 0)}
+                      required
+                    />
+                  </FormField>
                   <FormField label="รายละเอียด" hint="อธิบายสั้นๆ ว่าสถานที่นี้มีอะไรน่าสนใจ">
                     <textarea
                       value={description}
@@ -338,6 +397,69 @@ export function AdminPlaceFormPage({ mode }: { mode: "create" | "edit" }) {
                   </FormField>
                 </div>
               </div>
+
+              {isRestaurant ? (
+                <div className="placeFormSection">
+                  <div className="placeFormSectionTitle">เมนูแนะนำ</div>
+                  <div className="placeFormSectionBody">
+                    <p className="placeFormSectionHint">
+                      ร้านอาหารต้องมีอย่างน้อย 3 รายการ ราคาไม่บังคับ
+                    </p>
+                    <div className="menuDraftList">
+                      {recommendedMenus.map((item, index) => (
+                        <div className="menuDraftRow" key={index}>
+                          <FormField label={`เมนูที่ ${index + 1}`}>
+                            <input
+                              value={item.name}
+                              onChange={(e) =>
+                                setRecommendedMenus((prev) =>
+                                  prev.map((menu, i) =>
+                                    i === index ? { ...menu, name: e.target.value } : menu
+                                  )
+                                )
+                              }
+                              placeholder="เช่น ส้มตำ"
+                            />
+                          </FormField>
+                          <FormField label="ราคา">
+                            <input
+                              value={item.price}
+                              onChange={(e) =>
+                                setRecommendedMenus((prev) =>
+                                  prev.map((menu, i) =>
+                                    i === index ? { ...menu, price: e.target.value } : menu
+                                  )
+                                )
+                              }
+                              placeholder="เช่น 60 บาท"
+                            />
+                          </FormField>
+                          <button
+                            type="button"
+                            className="button menuDraftRemove"
+                            disabled={recommendedMenus.length <= MIN_RESTAURANT_MENUS}
+                            onClick={() =>
+                              setRecommendedMenus((prev) => prev.filter((_, i) => i !== index))
+                            }
+                          >
+                            ลบ
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="button"
+                      disabled={recommendedMenus.length >= 30}
+                      onClick={() =>
+                        setRecommendedMenus((prev) => [...prev, { name: "", price: "" }])
+                      }
+                    >
+                      เพิ่มเมนู
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="placeFormAccordions">
                 <FormAccordion

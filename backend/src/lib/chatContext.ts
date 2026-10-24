@@ -20,6 +20,7 @@ export type PlaceContextRow = {
   googleMapsUrl: string | null;
   facebookUrl: string | null;
   lineUrl: string | null;
+  recommendedMenus: { name: string; price: string | null }[];
 };
 
 export type ItineraryContextRow = {
@@ -77,6 +78,11 @@ function compactPlace(p: PlaceContextRow) {
   if (p.googleMapsUrl) out.googleMapsUrl = p.googleMapsUrl;
   if (p.facebookUrl) out.facebookUrl = p.facebookUrl;
   if (p.lineUrl) out.lineUrl = p.lineUrl;
+  if (p.recommendedMenus.length > 0) {
+    out.recommendedMenus = p.recommendedMenus.map((menu) =>
+      menu.price ? `${menu.name} (${menu.price})` : menu.name
+    );
+  }
   return out;
 }
 
@@ -105,7 +111,7 @@ export function buildSystemPrompt(ctx: TravelKnowledgeContext): string {
     "  - ชื่อสถานที่",
     "  หมวด: (category)",
     "  รายละเอียด: (สรุปจาก description/highlights 1–2 ประโยค)",
-    "  (ถ้ามี) เวลาเปิด: openingHours | ช่วงที่เหมาะ: bestVisitTime | ค่าเข้า: ticketPrice | กิจกรรม: activities | เหมาะกับ: suitableFor",
+    "  (ถ้ามี) เวลาเปิด: openingHours | ช่วงที่เหมาะ: bestVisitTime | ค่าเข้า: ticketPrice | กิจกรรม: activities | เหมาะกับ: suitableFor | เมนูแนะนำ: recommendedMenus",
     "  แผนที่: URL (เมื่อมี googleMapsUrl — คัดลอกตรงๆ)",
     "  Facebook: URL (เมื่อมี facebookUrl)",
     "  LINE: URL (เมื่อมี lineUrl)",
@@ -127,7 +133,7 @@ export function buildSystemPrompt(ctx: TravelKnowledgeContext): string {
 export async function loadTravelKnowledgeContext(): Promise<TravelKnowledgeContext> {
   const [placesRes, itinRes, foodsRes, souvenirsRes, zonesRes, guidesRes, provinceRes] =
     await Promise.all([
-      pool.query<PlaceContextRow>(
+      pool.query<Omit<PlaceContextRow, "recommendedMenus">>(
         `select
            tp.id,
            tp.name,
@@ -151,7 +157,7 @@ export async function loadTravelKnowledgeContext(): Promise<TravelKnowledgeConte
          from tourist_places tp
          left join categories c on c.id = tp.category_id
          where tp.is_active = true
-         order by tp.is_recommended_first_trip desc, tp.is_must_visit desc, tp.name asc
+         order by tp.display_order asc, tp.id asc
          limit 80`
       ),
       pool.query<{
@@ -239,8 +245,28 @@ export async function loadTravelKnowledgeContext(): Promise<TravelKnowledgeConte
     }
   }
 
+  const placeIds = placesRes.rows.map((place) => place.id);
+  const menusByPlace = new Map<number, { name: string; price: string | null }[]>();
+  if (placeIds.length > 0) {
+    const menuRes = await pool.query<{ placeId: number; name: string; price: string | null }>(
+      `select place_id as "placeId", name, price
+       from place_recommended_menus
+       where place_id = any($1::int[])
+       order by sort_order asc, id asc`,
+      [placeIds]
+    );
+    for (const menu of menuRes.rows) {
+      const list = menusByPlace.get(menu.placeId) ?? [];
+      list.push({ name: menu.name, price: menu.price });
+      menusByPlace.set(menu.placeId, list);
+    }
+  }
+
   return {
-    places: placesRes.rows,
+    places: placesRes.rows.map((place) => ({
+      ...place,
+      recommendedMenus: menusByPlace.get(place.id) ?? [],
+    })),
     itineraries: Array.from(itinMap.values()),
     localFoods: foodsRes.rows,
     souvenirs: souvenirsRes.rows,

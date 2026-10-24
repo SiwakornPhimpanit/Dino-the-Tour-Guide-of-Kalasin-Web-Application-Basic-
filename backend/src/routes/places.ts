@@ -1,6 +1,48 @@
 import { Router } from "express";
+import type { PoolClient } from "pg";
 import { pool } from "../db/pool.js";
 import { placeCreateSchema, placeReplaceSchema, type PlaceCreateBody } from "../validation/place.js";
+
+const RESTAURANT_CATEGORY_NAME = "ร้านอาหาร";
+const MIN_RESTAURANT_MENUS = 3;
+
+async function menusForSave(payload: PlaceCreateBody) {
+  const category = await pool.query(`select name from categories where id = $1`, [payload.categoryId]);
+  if (!category.rows[0]) return { error: "INVALID_CATEGORY_ID" as const };
+  const isRestaurant = String(category.rows[0].name).trim() === RESTAURANT_CATEGORY_NAME;
+  const menus = isRestaurant ? payload.recommendedMenus : [];
+  if (isRestaurant && menus.length < MIN_RESTAURANT_MENUS) {
+    return { error: "RESTAURANT_MENUS_REQUIRED" as const };
+  }
+  return { menus };
+}
+
+async function replaceRecommendedMenus(
+  client: PoolClient,
+  placeId: number,
+  menus: PlaceCreateBody["recommendedMenus"]
+) {
+  await client.query(`delete from place_recommended_menus where place_id = $1`, [placeId]);
+  for (let i = 0; i < menus.length; i++) {
+    const menu = menus[i];
+    await client.query(
+      `insert into place_recommended_menus (place_id, name, price, sort_order)
+       values ($1, $2, $3, $4)`,
+      [placeId, menu.name, menu.price ?? null, i]
+    );
+  }
+}
+
+async function loadRecommendedMenus(placeId: number | string) {
+  const result = await pool.query(
+    `select name, price
+     from place_recommended_menus
+     where place_id = $1
+     order by sort_order asc, id asc`,
+    [placeId]
+  );
+  return result.rows;
+}
 
 export const placesRouter = Router();
 
@@ -24,7 +66,8 @@ const placeRowSelect = `
          tp.faq,
          coalesce(tp.is_must_visit, false) as "isMustVisit",
          coalesce(tp.is_recommended_first_trip, false) as "isRecommendedFirstTrip",
-         tp.estimated_visit_hours as "estimatedVisitHours"`;
+         tp.estimated_visit_hours as "estimatedVisitHours",
+         coalesce(tp.display_order, 0) as "displayOrder"`;
 
 function placeInsertParams(payload: PlaceCreateBody) {
   return [
@@ -46,6 +89,7 @@ function placeInsertParams(payload: PlaceCreateBody) {
     payload.isMustVisit ?? false,
     payload.isRecommendedFirstTrip ?? false,
     payload.estimatedVisitHours ?? null,
+    payload.displayOrder ?? 0,
   ];
 }
 
@@ -53,7 +97,7 @@ const placeInsertColumns = `
   name, description, category_id, google_maps_url, facebook_url, line_url,
   district, address, opening_hours, best_visit_time, ticket_price,
   activities, suitable_for, highlights, faq,
-  is_must_visit, is_recommended_first_trip, estimated_visit_hours`;
+  is_must_visit, is_recommended_first_trip, estimated_visit_hours, display_order`;
 
 const placesListFromWhere = `
        from tourist_places tp
@@ -70,7 +114,7 @@ const placesListFromWhere = `
          )`;
 
 const placesListOrderBy = `
-       order by tp.is_recommended_first_trip desc, tp.is_must_visit desc, tp.created_at desc`;
+       order by tp.display_order asc, tp.id asc`;
 
 function parsePaginationQuery(req: { query: Record<string, unknown> }) {
   const hasPage = req.query.page !== undefined && req.query.page !== "";
@@ -194,10 +238,13 @@ placesRouter.get("/:id", async (req, res, next) => {
       [id]
     );
 
+    const recommendedMenus = await loadRecommendedMenus(id);
+
     res.json({
       data: {
         ...place,
         images: imagesResult.rows,
+        recommendedMenus,
       },
     });
   } catch (err) {
@@ -208,6 +255,8 @@ placesRouter.get("/:id", async (req, res, next) => {
 placesRouter.post("/", async (req, res, next) => {
   try {
     const payload = placeCreateSchema.parse(req.body);
+    const menuCheck = await menusForSave(payload);
+    if ("error" in menuCheck) return res.status(400).json({ error: menuCheck.error });
 
     let coverIndex = payload.images.findIndex((img) => img.isCover === true);
     if (coverIndex < 0) coverIndex = 0;
@@ -218,7 +267,7 @@ placesRouter.post("/", async (req, res, next) => {
 
       const insertPlace = await client.query(
         `insert into tourist_places (${placeInsertColumns})
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
          returning id`,
         placeInsertParams(payload)
       );
@@ -233,6 +282,8 @@ placesRouter.post("/", async (req, res, next) => {
           [placeId, img.url, isCover]
         );
       }
+
+      await replaceRecommendedMenus(client, placeId, menuCheck.menus);
 
       await client.query("COMMIT");
 
@@ -258,6 +309,7 @@ placesRouter.post("/", async (req, res, next) => {
         data: {
           ...detail.rows[0],
           images: imagesResult.rows,
+          recommendedMenus: menuCheck.menus,
         },
       });
     } catch (err) {
@@ -277,6 +329,8 @@ placesRouter.put("/:id", async (req, res, next) => {
     if (!Number.isFinite(id)) return res.status(400).json({ error: "INVALID_ID" });
 
     const payload = placeReplaceSchema.parse(req.body);
+    const menuCheck = await menusForSave(payload);
+    if ("error" in menuCheck) return res.status(400).json({ error: menuCheck.error });
 
     let coverIndex = payload.images.findIndex((img) => img.isCover === true);
     if (coverIndex < 0) coverIndex = 0;
@@ -309,8 +363,9 @@ placesRouter.put("/:id", async (req, res, next) => {
              is_must_visit = $16,
              is_recommended_first_trip = $17,
              estimated_visit_hours = $18,
+             display_order = $19,
              updated_at = now()
-         where id = $19`,
+         where id = $20`,
         [...p, id]
       );
 
@@ -325,6 +380,8 @@ placesRouter.put("/:id", async (req, res, next) => {
           [id, img.url, isCover]
         );
       }
+
+      await replaceRecommendedMenus(client, id, menuCheck.menus);
 
       await client.query("COMMIT");
 
@@ -350,6 +407,7 @@ placesRouter.put("/:id", async (req, res, next) => {
         data: {
           ...detail.rows[0],
           images: imagesResult.rows,
+          recommendedMenus: menuCheck.menus,
         },
       });
     } catch (err) {

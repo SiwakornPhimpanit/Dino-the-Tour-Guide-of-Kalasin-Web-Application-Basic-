@@ -20,6 +20,8 @@ const sqlFiles = [
   "012_drop_users_avatar_url.sql",
   "015_drop_publicity.sql",
   "016_drop_places_lat_lng.sql",
+  "017_places_display_order.sql",
+  "018_place_recommended_menus.sql",
 ];
 
 async function run() {
