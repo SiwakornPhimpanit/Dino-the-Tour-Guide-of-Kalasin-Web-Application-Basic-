@@ -5,6 +5,7 @@ import {
   buildSystemPrompt,
   loadTravelKnowledgeContext,
   placeNamesAlreadyRecommended,
+  restaurantsForMenuQuery,
 } from "../lib/chatContext.js";
 import {
   insertChatMessage,
@@ -106,7 +107,8 @@ chatRouter.post("/stream", optionalAuth, async (req: AuthedRequest, res: Respons
       parsed.data.messages,
       ctx.places.map((place) => place.name)
     );
-    systemPrompt = buildSystemPrompt(ctx, alreadyRecommended);
+    const menuMatches = restaurantsForMenuQuery(lastUser.content, ctx.places);
+    systemPrompt = buildSystemPrompt(ctx, alreadyRecommended, menuMatches);
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "KNOWLEDGE_LOAD_FAILED" });

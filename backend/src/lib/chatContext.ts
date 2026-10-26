@@ -90,6 +90,83 @@ function normalizePlaceLabel(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+const MENU_QUERY_PREFIXES = [
+  "อยากกิน",
+  "อยากทาน",
+  "อยากแวะกิน",
+  "ขอกิน",
+  "ขอทาน",
+  "ช่วยหา",
+  "มีร้าน",
+  "ร้านอาหาร",
+  "แนะนำ",
+  "ร้าน",
+  "หา",
+  "กิน",
+  "ทาน",
+].sort((a, b) => b.length - a.length);
+
+const MENU_QUERY_STOP = new Set(["อาหาร", "ของกิน", "อร่อย", "ร้าน", "เที่ยว", "กิน", "ทาน", "เมนู", "หน่อย"]);
+
+export type MenuRestaurantMatch = {
+  placeName: string;
+  category: string;
+  menus: string[];
+  googleMapsUrl: string | null;
+};
+
+function menuQueryNeedle(userText: string): { raw: string; needle: string } {
+  const raw = normalizePlaceLabel(userText)
+    .replace(/[?？!！.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  let needle = raw;
+  let stripped = true;
+  while (stripped && needle) {
+    stripped = false;
+    for (const prefix of MENU_QUERY_PREFIXES) {
+      if (needle.startsWith(prefix)) {
+        needle = needle.slice(prefix.length).trim();
+        stripped = true;
+        break;
+      }
+    }
+  }
+  needle = needle.replace(/(ครับ|ค่ะ|คะ|นะ|หน่อย|บ้าง|ไหม|มั้ย|ที่ไหน)$/u, "").trim();
+  if (MENU_QUERY_STOP.has(needle)) needle = "";
+  return { raw, needle };
+}
+
+/** Restaurants whose recommended menu is named in the latest user message, including "อยากกินแหนมเนือง". */
+export function restaurantsForMenuQuery(userText: string, places: PlaceContextRow[]): MenuRestaurantMatch[] {
+  const { raw, needle } = menuQueryNeedle(userText);
+  if (raw.length < 2) return [];
+
+  const matches: MenuRestaurantMatch[] = [];
+  for (const place of places) {
+    const menus = place.recommendedMenus.filter((menu) => {
+      const name = normalizePlaceLabel(menu.name);
+      if (name.length < 2) return false;
+      if (raw.includes(name)) return true;
+      if (needle.length >= 2 && name.includes(needle)) return true;
+      if (needle.length >= 2 && needle.includes(name) && name.length >= 3 && name.length * 2 >= needle.length) {
+        return true;
+      }
+      return false;
+    });
+    if (menus.length === 0) continue;
+    matches.push({
+      placeName: normalizePlaceLabel(place.name),
+      category: place.categoryName ?? "ร้านอาหาร",
+      menus: menus.map((menu) =>
+        menu.price ? `${normalizePlaceLabel(menu.name)} (${menu.price})` : normalizePlaceLabel(menu.name)
+      ),
+      googleMapsUrl: place.googleMapsUrl,
+    });
+  }
+  return matches;
+}
+
 /** Place names already written in earlier assistant replies of this chat. Longer names win over fragments. */
 export function placeNamesAlreadyRecommended(
   messages: { role: string; content: string }[],
@@ -117,7 +194,8 @@ export function placeNamesAlreadyRecommended(
 
 export function buildSystemPrompt(
   ctx: TravelKnowledgeContext,
-  alreadyRecommended: string[] = []
+  alreadyRecommended: string[] = [],
+  menuMatches: MenuRestaurantMatch[] = []
 ): string {
   const places = ctx.places.map(compactPlace);
   const itineraries = ctx.itineraries.map((it) => ({
@@ -136,8 +214,8 @@ export function buildSystemPrompt(
     "- ตอบเป็นภาษาไทยเท่านั้น น้ำเสียงสุภาพ อ่านง่าย",
     "- ใช้เฉพาะข้อมูลจาก JSON ด้านล่าง (places, itineraries, localFoods, souvenirs, stayZones, travelGuides, provinceInfo) ห้ามสร้างชื่อสถานที่ ราคา หรือลิงก์ที่ไม่มีในข้อมูล",
     "- คำถามเรื่องแผนเที่ยว 1 วัน / 2 วัน 1 คืน / มาครั้งแรก → ใช้ itineraries และ places ที่เกี่ยวข้อง",
-    "- คำถามอาหารพื้นเมือง → localFoods | ของฝาก/ผ้าไหม → souvenirs | พักโซนไหน → stayZones",
-    "- ถ้าผู้ใช้หาเมนูหรือร้านอาหาร เช่น ลาบ หรือ ร้านลาบ ให้แนะนำเฉพาะร้านใน places ที่ recommendedMenus มีเมนูนั้น พร้อมชื่อเมนู ห้ามสร้างร้านหรือเมนูที่ไม่มีในข้อมูล",
+    "- คำถามอาหารพื้นเมืองที่ไม่มีชื่อเมนูตรงกับ recommendedMenus → localFoods | ของฝาก/ผ้าไหม → souvenirs | พักโซนไหน → stayZones",
+    "- ถ้าผู้ใช้พิมพ์ชื่อเมนูหรือประโยคอยากกิน เช่น ลาบ, ร้านลาบ, อยากกินแหนมเนือง ให้แนะนำทุกร้านใน places ที่ recommendedMenus มีเมนูนั้น ห้ามตอบว่าไม่มีถ้ามีร้านตรงเมนู และห้ามสร้างร้านที่ไม่มีในข้อมูล",
     "- คำถามเดินทางจากกรุงเทพ / งบประมาณ → travelGuides",
     "- คำถามครอบครัว/เด็ก → provinceInfo และ suitableFor ของ places",
     "- ในแชทเดียวกัน ห้ามแนะนำสถานที่ที่เคยตอบไปแล้วซ้ำ เลือกสถานที่อื่นใน places ที่ยังไม่ถูกกล่าวถึง",
@@ -161,6 +239,17 @@ export function buildSystemPrompt(
       ? [
           "",
           `สถานที่ที่แนะนำไปแล้วในแชทนี้ ห้ามนำมาแนะนำซ้ำ: ${alreadyRecommended.join(" | ")}`,
+        ]
+      : []),
+    ...(menuMatches.length > 0
+      ? [
+          "",
+          "คำถามล่าสุดตรงกับเมนูแนะนำของร้านอาหาร ต้องตอบเป็นร้านด้านล่างครบทุกแห่ง เป็นคำตอบหลัก ห้ามตอบว่าไม่มีข้อมูล และห้ามเปลี่ยนไปแนะนำที่เที่ยวแทน:",
+          ...menuMatches.map((match) => {
+            const map = match.googleMapsUrl ? ` | แผนที่: ${match.googleMapsUrl}` : "";
+            return `- ${match.placeName} | หมวด: ${match.category} | เมนูที่ตรง: ${match.menus.join(", ")}${map}`;
+          }),
+          "ร้านในรายการนี้ให้แนะนำได้แม้จะเคยถูกกล่าวถึงในแชทนี้แล้ว",
         ]
       : []),
     "",
@@ -201,8 +290,7 @@ export async function loadTravelKnowledgeContext(): Promise<TravelKnowledgeConte
          from tourist_places tp
          left join categories c on c.id = tp.category_id
          where tp.is_active = true
-         order by tp.display_order asc, tp.id asc
-         limit 80`
+         order by tp.display_order asc, tp.id asc`
       ),
       pool.query<{
         id: number;
